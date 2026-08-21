@@ -17,10 +17,13 @@ Gate 2 independent of anything the model itself decides to do.
 
 import argparse
 
+from pydantic_ai import UsageLimits
+
 from .deps import AgentDeps
 from .gateway_session import GatewaySession
 from .main import build_agent
 
+DEFAULT_REQUEST_LIMIT = 10
 
 def main():
     parser = argparse.ArgumentParser()
@@ -28,12 +31,16 @@ def main():
     parser.add_argument("password")
     parser.add_argument("prompt")
     parser.add_argument("--model", default="llama3.2:3b")
+    parser.add_argument("--request-limit", type=int, default=DEFAULT_REQUEST_LIMIT)
     args = parser.parse_args()
 
     gateway = GatewaySession(args.username, args.password)
     agent = build_agent(model_name=args.model)
 
-    result = agent.run_sync(args.prompt, deps=AgentDeps(gateway=gateway))
+    result = agent.run_sync(
+        args.prompt, 
+        deps=AgentDeps(gateway=gateway),
+        usage_limits=UsageLimits(request_limit=args.request_limit))
     print(result.output)
 
 
