@@ -1,0 +1,23 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: ztap-keycloak
+    command: start-dev --import-realm
+    environment:
+      # Current Keycloak images use these var names for the bootstrap admin.
+      # If you're on an older image tag and login fails, try KEYCLOAK_ADMIN /
+      # KEYCLOAK_ADMIN_PASSWORD instead (older naming convention).
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/ztap-realm.json:/opt/keycloak/data/import/ztap-realm.json:ro
+    restart: unless-stopped
+
+volumes:
+  keycloak_data:
+
+# gateway and stub-api service blocks still intentionally absent -- run gateway.py directly with uvicorn for now (see README section 5/6).
+# Cedar has no service block: it's called as a library from gateway.py, not run as a long-lived server.

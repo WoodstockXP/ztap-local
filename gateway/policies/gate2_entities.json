@@ -1,0 +1,7 @@
+[
+  { "uid": { "type": "User", "id": "alice" }, "attrs": { "tenant": "tenant-a" }, "parents": [] },
+  { "uid": { "type": "User", "id": "bob" },   "attrs": { "tenant": "tenant-b" }, "parents": [] },
+
+  { "uid": { "type": "Record", "id": "rec-001" }, "attrs": { "tenant": "tenant-a" }, "parents": [] },
+  { "uid": { "type": "Record", "id": "rec-002" }, "attrs": { "tenant": "tenant-b" }, "parents": [] }
+]

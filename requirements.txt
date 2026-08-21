@@ -1,0 +1,17 @@
+# Agent runtime (default install includes OpenAIChatModel + OllamaProvider, used to talk to a local Ollama server via its OpenAI-compatible API)
+pydantic-ai
+
+# Cedar Python bindings (unofficial wrapper around the Rust cedar-policy crate; the official interface is the `cedar` CLI installed separately via cargo -- use that for policy unit-testing, use cedarpy once gateway.py needs to call Cedar in-process from Gate 2)
+cedarpy
+
+# OAuth token handling / DPoP proof construction and verification
+PyJWT[crypto]
+cryptography
+
+# Local web framework for gateway.py (Inline Policy Interceptor)
+fastapi
+uvicorn[standard]
+
+# Convenience
+python-dotenv
+httpx

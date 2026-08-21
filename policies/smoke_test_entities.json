@@ -1,0 +1,4 @@
+[
+  { "uid": { "type": "User", "id": "alice" }, "attrs": {}, "parents": [] },
+  { "uid": { "type": "Invoice", "id": "inv-001" }, "attrs": {}, "parents": [] }
+]
