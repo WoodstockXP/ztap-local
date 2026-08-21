@@ -74,13 +74,9 @@ curl -s http://localhost:8080/realms/ztap/.well-known/openid-configuration | hea
  
 If that returns JSON (not a 404), the realm imported correctly. Admin console login is still `admin` / `admin` at http://localhost:8080 if you want to look around (Users, alice and bob, should be there with a `tenant` attribute under their Attributes tab).
  
-## 6. Run the gateway and exercise all three gates, for real this time
+## 6. Run the gateway and exercise all the gates, for real this time
  
 `gateway/` implements Frame 1's ContextVars plumbing plus real Gates 1, 2, and 4. **Gate 1 is no longer stubbed**: it verifies the access token's JWT signature against Keycloak's JWKS and verifies a real DPoP proof (RFC 9449) per request, signature, HTTP method/URL match, freshness, replay protection, and binding to that specific access token via the `ath` claim.
- 
-One named limitation, not hidden: full RFC 9449 also supports an Authorization-Server-issued `cnf.jkt` claim that binds a token to a key for its *entire lifetime*. Keycloak's native support for that varies by version and wasn't confirmed before building this, so Gate 1 verifies proof-of-possession per request instead. Worth writing up as a scoped limitation rather than presenting as complete DPoP coverage.
- 
-Gate 3 (session envelope enforcement, behind H2) still isn't built, it needs a call-count store and comes after Gates 1/2/4 are solid.
  
 Start the gateway:
  
@@ -130,14 +126,31 @@ python -m agent.run_agent bob bob-pass "Read record rec-002"
  
 Watch the gateway's stdout for the `[AUDIT]` lines while these run, that's where you can see which gate actually made each decision, since the agent itself is never told.
  
-## 8. What's next (still within Phase 4)
+## 8. Gate 3: session envelope enforcement
  
-- **Gate 3**: session envelope enforcement, the aggregate-attack detector behind H2. Needs a call-count store keyed on tenant/agent/action, and a threshold policy for what counts as suspicious volume.
+`gateway/gate3_session_envelope.py` adds the fourth piece: a sliding-window call-count limiter keyed on (tenant, principal, action), sitting between Gate 2 and Gate 4 in the pipeline. This is what H2 gets measured against, individually-authorized calls that form an unauthorized *pattern* in aggregate. Current thresholds (10 reads/60s, 3 updates/60s) are starting points, not validated numbers, tune them once you can measure false positives against legitimate bursty usage.
+ 
+Set `ZTAP_GATE3_ENABLED=false` to run the "Gates 1/2/4 only" baseline your Evaluation Plan calls for, to isolate what Gate 3 actually adds:
+ 
+```bash
+ZTAP_GATE3_ENABLED=false uvicorn gateway.main:app --reload --port 8001
+```
+ 
+To see it trip, send more than 10 reads to the same record within 60 seconds, e.g. loop the test client:
+ 
+```bash
+for i in $(seq 1 11); do python client/call_gateway.py alice alice-pass readRecord rec-001; done
+```
+ 
+The 11th should come back denied, with `[AUDIT] gate=GATE3` in the gateway's stdout.
+ 
+## 9. What's next (still within Phase 4)
+ 
 - **User acting_as Agent**: Gate 2's principal is still a single undifferentiated `User`, not the `User acting_as Agent` distinction flagged in the Jul 20th feedback. Worth doing before the prompt-injection test harness, since that distinction is what lets a policy restrict what an agent can do on a user's behalf even when the user themself has broader access.
-- **Prompt-injection test harness**: once Gate 3 exists, this is what H1 and H2 actually get measured against, single-shot injection targeting Gates 1/2/4, and multi-call aggregate patterns targeting Gate 3.
+- **Prompt-injection test harness**: with all four gates in place, this is what H1 and H2 actually get measured against, single-shot injection targeting Gates 1/2/4, and multi-call aggregate patterns targeting Gate 3. The single-request-only and no-gateway baselines from the Evaluation Plan are both easy to produce now (`ZTAP_GATE3_ENABLED=false` for the former, bypassing the gateway entirely for the latter).
 
 ## Hardware note
 
 RTX 3050 Laptop GPU, 4GB VRAM, 16GB system RAM. `llama3.2:3b` at Q4 quantization fits fully in VRAM. Confirm actual behavior with `ollama run`.
 
-// como funciona la arquitectura, necesito pods?
+<!-- como funciona la arquitectura, necesito pods? -->

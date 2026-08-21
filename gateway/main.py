@@ -1,16 +1,17 @@
 """
 Inline Policy Interceptor / Security Gateway (Frame 1 and Frame 2).
 
-Wires Gates 1, 2, and 4 into a sequential pipeline: a request must clear
+Wires all four gates into a sequential pipeline: a request must clear
 each gate in order, and a failure at any gate blocks execution outright
 with only a generic denial returned to the caller. The full reason is
 logged to the audit sink instead, per Frame 1's separation between what
 the (untrusted) caller sees and what gets recorded.
-
-Gate 3 (session envelope enforcement, the aggregate-attack detector behind
-H2) is intentionally not implemented yet, it needs a call-count store and
-is a separate build step layered on top of this once Gates 1/2/4 are
-solid.
+ 
+Gate order: authentication and tenant resolution (Gate 1), Cedar-based
+role authorization (Gate 2), session envelope enforcement (Gate 3), then
+schema conformance validation (Gate 4). Gate 3 can be disabled via
+ZTAP_GATE3_ENABLED=false for the "Gates 1/2/4 only" baseline the
+Evaluation Plan calls for; see gate3_session_envelope.py.
 
 Run with:
     uvicorn gateway.main:app --reload
@@ -26,6 +27,7 @@ from pydantic import BaseModel
 from .context import SecurityContext, set_security_context
 from .gate1_auth import Gate1Denied, evaluate_gate1
 from .gate2_authorization import Gate2Denied, Gate2Request, evaluate_gate2
+from .gate3_session_envelope import Gate3Denied, evaluate_gate3
 from .gate4_schema import Gate4Denied, evaluate_gate4
 
 app = FastAPI(title="Zero-Trust Agent Perimeter Gateway (local harness)")
@@ -88,6 +90,13 @@ def invoke(
         _audit_log("GATE2", "DENY", str(exc))
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
 
+    # --- Gate 3: Session Envelope Enforcement ---
+    try:
+        evaluate_gate3(tenant=gate1.tenant, principal=gate1.principal, action=body.action)
+    except Gate3Denied as exc:
+        _audit_log("GATE3", "DENY", str(exc))
+        raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
+ 
     # --- Gate 4: Schema Conformance Validation ---
     try:
         validated_args = evaluate_gate4(body.action, body.args)
@@ -107,6 +116,5 @@ def invoke(
 
 def _audit_log(gate: str, decision: str, detail: str) -> None:
     # Placeholder for the Append-Only Audit Log & Telemetry layer (Frame 2).
-    # Prints for now; swap for real structured logging once you get to
-    # the Monitoring pillar.
+    # Prints for now; swap for real structured logging once you get to the Monitoring pillar.
     print(f"[AUDIT] gate={gate} decision={decision} detail={detail}")
