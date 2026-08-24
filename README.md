@@ -144,9 +144,28 @@ for i in $(seq 1 11); do python client/call_gateway.py alice alice-pass readReco
  
 The 11th should come back denied, with `[AUDIT] gate=GATE3` in the gateway's stdout.
  
-## 9. What's next (still within Phase 4)
+## 9. User acting_as Agent: agent-scoped authorization
  
-- **User acting_as Agent**: Gate 2's principal is still a single undifferentiated `User`, not the `User acting_as Agent` distinction flagged in the Jul 20th feedback. Worth doing before the prompt-injection test harness, since that distinction is what lets a policy restrict what an agent can do on a user's behalf even when the user themself has broader access.
+Gate 2's principal was previously a single undifferentiated `User` (the AuthZen profile: human user as principal/Subject, acting agent's own scope as part of Context), Gate 2 now checks two independent things for every call: the user's tenant boundary (unchanged), and separately, whether *this specific agent* is scoped to perform the requested action at all. Both must hold, a user being personally allowed to do something does not mean every agent acting on their behalf is.
+ 
+Two agent identities exist in `gateway/policies/gate2_entities.json`: `invoice-agent-v2` (read + update, the default) and `invoice-agent-readonly` (read only). Which one a given gateway process uses is a deployment-time constant (`ZTAP_AGENT_ID`), not something the caller can assert per request, letting an untrusted caller declare its own agent identity would defeat the entire point of scoping it.
+ 
+To see the restriction actually bite, restart the gateway with the read-only agent and try an update that would otherwise succeed:
+ 
+```bash
+ZTAP_AGENT_ID=invoice-agent-readonly uvicorn gateway.main:app --reload --port 8001
+```
+ 
+```bash
+python client/call_gateway.py alice alice-pass updateRecord rec-001 --amount 500
+```
+ 
+Same user, her own tenant, a well-formed amount, this passed everywhere before. Now it denies at Gate 2 with the read-only agent, purely because of which agent is acting, not anything about the user or the request itself. Check the gateway's stdout, `[AUDIT] gate=GATE2` will show the agent identity in context alongside the denial.
+ 
+One named limitation: agent identity here is a gateway-level config constant, not independently authenticated per request the way the user's identity is (via Gate 1's JWT + DPoP). Real agent identity issuance (a separate credential, distinct from the user's OAuth token) is out of scope for now, worth flagging in Limitations rather than presenting as equivalent in strength to the user-side verification.
+ 
+## 10. What's next
+ 
 - **Prompt-injection test harness**: with all four gates in place, this is what H1 and H2 actually get measured against, single-shot injection targeting Gates 1/2/4, and multi-call aggregate patterns targeting Gate 3. The single-request-only and no-gateway baselines from the Evaluation Plan are both easy to produce now (`ZTAP_GATE3_ENABLED=false` for the former, bypassing the gateway entirely for the latter).
 
 ## Hardware note

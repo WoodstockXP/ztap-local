@@ -6,7 +6,7 @@ each gate in order, and a failure at any gate blocks execution outright
 with only a generic denial returned to the caller. The full reason is
 logged to the audit sink instead, per Frame 1's separation between what
 the (untrusted) caller sees and what gets recorded.
- 
+
 Gate order: authentication and tenant resolution (Gate 1), Cedar-based
 role authorization (Gate 2), session envelope enforcement (Gate 3), then
 schema conformance validation (Gate 4). Gate 3 can be disabled via
@@ -18,6 +18,7 @@ Run with:
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -39,6 +40,16 @@ app = FastAPI(title="Zero-Trust Agent Perimeter Gateway (local harness)")
 ENTITIES = json.loads(
     (Path(__file__).parent / "policies" / "gate2_entities.json").read_text()
 )
+
+# Which agent identity this gateway deployment fronts. A deployment-time
+# constant, not something the (untrusted) caller can assert per request,
+# since letting a caller self-declare its own agent scope would defeat
+# the whole point of scoping it. Real agent identity issuance (a separate
+# credential, distinct from the user's OAuth token) is future work, this
+# is a named, deliberate simplification for now, matching the pattern
+# used for Gate 1's DPoP work: build something real and be explicit
+# about what's still deferred.
+AGENT_ID = os.environ.get("ZTAP_AGENT_ID", "invoice-agent-v2")
 
 GENERIC_DENIAL = {"decision": "DENY", "detail": "Action not permitted"}
 
@@ -84,6 +95,7 @@ def invoke(
                 action=action_ref,
                 resource=resource_ref,
                 entities=ENTITIES,
+                context={"agent": {"__entity": {"type": "Agent", "id": AGENT_ID}}},
             )
         )
     except Gate2Denied as exc:
@@ -96,7 +108,7 @@ def invoke(
     except Gate3Denied as exc:
         _audit_log("GATE3", "DENY", str(exc))
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
- 
+
     # --- Gate 4: Schema Conformance Validation ---
     try:
         validated_args = evaluate_gate4(body.action, body.args)
@@ -116,5 +128,6 @@ def invoke(
 
 def _audit_log(gate: str, decision: str, detail: str) -> None:
     # Placeholder for the Append-Only Audit Log & Telemetry layer (Frame 2).
-    # Prints for now; swap for real structured logging once you get to the Monitoring pillar.
+    # Prints for now; swap for real structured logging once you get to
+    # the Monitoring pillar.
     print(f"[AUDIT] gate={gate} decision={decision} detail={detail}")

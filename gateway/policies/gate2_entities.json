@@ -3,5 +3,25 @@
   { "uid": { "type": "User", "id": "bob" },   "attrs": { "tenant": "tenant-b" }, "parents": [] },
 
   { "uid": { "type": "Record", "id": "rec-001" }, "attrs": { "tenant": "tenant-a" }, "parents": [] },
-  { "uid": { "type": "Record", "id": "rec-002" }, "attrs": { "tenant": "tenant-b" }, "parents": [] }
+  { "uid": { "type": "Record", "id": "rec-002" }, "attrs": { "tenant": "tenant-b" }, "parents": [] },
+
+  {
+    "uid": { "type": "Agent", "id": "invoice-agent-v2" },
+    "attrs": {
+      "allowedActions": [
+        { "__entity": { "type": "Action", "id": "readRecord" } },
+        { "__entity": { "type": "Action", "id": "updateRecord" } }
+      ]
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Agent", "id": "invoice-agent-readonly" },
+    "attrs": {
+      "allowedActions": [
+        { "__entity": { "type": "Action", "id": "readRecord" } }
+      ]
+    },
+    "parents": []
+  }
 ]
