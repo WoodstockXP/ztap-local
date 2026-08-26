@@ -1,4 +1,4 @@
-# ZTAP Local Harness (Phase 4)
+# ZTAP Local Harness
 
 Local-only prototype environment: build and validate the core pipeline entirely offline before any AWS or Kubernetes work begins.
 This is the **Bridge** topology's building blocks running as plain Docker Compose, not yet as Kubernetes; Silo and the EKS deployment are future work.
@@ -163,13 +163,65 @@ python client/call_gateway.py alice alice-pass updateRecord rec-001 --amount 500
 Same user, her own tenant, a well-formed amount, this passed everywhere before. Now it denies at Gate 2 with the read-only agent, purely because of which agent is acting, not anything about the user or the request itself. Check the gateway's stdout, `[AUDIT] gate=GATE2` will show the agent identity in context alongside the denial.
  
 One named limitation: agent identity here is a gateway-level config constant, not independently authenticated per request the way the user's identity is (via Gate 1's JWT + DPoP). Real agent identity issuance (a separate credential, distinct from the user's OAuth token) is out of scope for now, worth flagging in Limitations rather than presenting as equivalent in strength to the user-side verification.
+
+## 10. Evaluation harness: structured logging, no-gateway baseline, Tier 1 attacks
  
-## 10. What's next
+This covers everything built and tested so far toward the Evaluation Plan. The prompt-injection tests that go through the real agent (Tier 2) aren't built yet, see section 11.
  
-- **Prompt-injection test harness**: with all four gates in place, this is what H1 and H2 actually get measured against, single-shot injection targeting Gates 1/2/4, and multi-call aggregate patterns targeting Gate 3. The single-request-only and no-gateway baselines from the Evaluation Plan are both easy to produce now (`ZTAP_GATE3_ENABLED=false` for the former, bypassing the gateway entirely for the latter).
+### Structured audit logging
+ 
+Every gate decision now writes a JSON line to `logs/gateway_audit.jsonl` (in addition to the existing `[AUDIT]` stdout print), including per-gate latency. This is what feeds Frame 3's performance numbers and the harness's blocking-rate reports; nothing to run here, it happens automatically once the gateway restarts on the updated `main.py`. Peek at it directly if you want:
+ 
+```bash
+tail -f logs/gateway_audit.jsonl
+```
+ 
+### No-gateway baseline
+ 
+A second agent (`agent/no_gateway_main.py`) with the identical model, system prompt, and tool shapes as the real one, but its tools call `baseline/no_gateway_backend.py` directly, no auth, no Cedar, no session envelope, no schema validation. This exists to measure what the pipeline actually buys, per H1. No Keycloak or gateway process needed for this one, it's fully standalone:
+ 
+```bash
+python -m agent.run_agent_no_gateway "Read record rec-001"
+python -m agent.run_agent_no_gateway "Update record rec-002 to amount 999999"
+```
+ 
+The second command should just succeed, no denial, no tenant check, nothing stopping an absurd value. That's the point, it's the contrast the full pipeline is measured against.
+
+### Tier 1: direct gateway attacks (no LLM)
+ 
+`eval/run_gateway_attacks.py` runs a corpus of deterministic, malicious requests straight at the gateway, single-request attacks on Gates 2 and 4, malformed-DPoP attacks on Gate 1 (missing proof, garbage proof, and critically, a proof signed with the *wrong* key to simulate a stolen bearer token), and burst-volume attacks on Gate 3. This tests gate robustness in isolation, independent of whether any real agent would ever construct these requests, that's what Tier 2 (section 11) is for.
+ 
+Needs Keycloak and the gateway running (sections 5-6). Run as a module from the project root:
+ 
+```bash
+python -m eval.run_gateway_attacks
+```
+ 
+Expect a PASS/FAIL line per test case, a summary count, and a blocking-rate/latency breakdown pulled from the structured audit log for just this run's time window. Everything in this file has been unit- and integration-tested in isolation (the Cedar entity/context logic, the report formatting, the Gate 3 expected-pattern arithmetic), but the full run against a live Keycloak + gateway hasn't happened yet, this will be the first real end-to-end execution of it.
+ 
+
+### Tier 2: agent-mediated prompt injection
+ 
+`eval/run_agent_attacks.py` is the one that actually tests H1/H2. It feeds natural-language adversarial prompts (`eval/agent_injection_corpus.py`) through the real agent, fake admin-override claims attempting cross-tenant access, an identity-impersonation attempt via prompt content (checking that nothing in conversation text can override the session's cryptographically verified identity), malicious arguments framed as routine requests, and a burst-inducing prompt targeting Gate 3, then checks the structured audit log for what actually happened during that prompt's run window.
+ 
+Each result lands in one of four buckets: `SAFE (blocked at GATEn)` — the agent attempted the forbidden action and the gateway denied it, `SAFE (not attempted)` — the agent never tried, so this run can't say whether the gateway would have caught it, `FAIL (attack succeeded)` — the real finding to worry about, and `PASS`/`FAIL` for the one control case (should simply succeed; if it doesn't, something in the harness itself is broken, not the gateway). One case (`T2-G3-01`, the Gate 3 burst attempt) is marked `informative_only` and excluded from the pass/fail summary, whether a 3B model reliably loops a tool call 15 times from one instruction is itself an open question, not a gateway result.
+ 
+Needs Keycloak, the gateway, and Ollama all running:
+ 
+```bash
+python -m eval.run_agent_attacks
+python -m eval.run_agent_attacks --model qwen2.5:7b
+```
+ 
+The outcome-determination logic (matching audit log entries to a test case, deciding SAFE/FAIL/PASS) is unit-tested against synthetic log data covering all five branches, but nothing about actually running prompts through a real model has been exercised yet, that needs your machine.
+ 
+Two things worth doing once you've run this for real: rerun `T2-G2-03` (the agent-scope bypass claim) under both `ZTAP_AGENT_ID=invoice-agent-v2` and `ZTAP_AGENT_ID=invoice-agent-readonly` and compare, since it's only meaningful as a contrast between the two; and treat any `UNCLEAR` outcome as worth a manual look at `logs/gateway_audit.jsonl` rather than silently discarding it, since it means the harness's own log-correlation logic didn't find a clean resolution, not that nothing happened.
+
+## 11. Considerations
+ 
+- **Single-request-only baseline run**: both harness tiers exist now, worth running Tier 1 and Tier 2 again with `ZTAP_GATE3_ENABLED=false uvicorn gateway.main:app --reload --port 8001` to isolate what Gate 3 specifically adds, per the Evaluation Plan.
+<!-- **First live runs**: neither `eval/run_gateway_attacks.py` nor `eval/run_agent_attacks.py` has been executed against your actual Keycloak + gateway + Ollama setup yet. That's the immediate next step, not more building.-->
 
 ## Hardware note
 
 RTX 3050 Laptop GPU, 4GB VRAM, 16GB system RAM. `llama3.2:3b` at Q4 quantization fits fully in VRAM. Confirm actual behavior with `ollama run`.
-
-<!-- como funciona la arquitectura, necesito pods? -->

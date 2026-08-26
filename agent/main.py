@@ -16,15 +16,7 @@ from pydantic_ai.providers.ollama import OllamaProvider
 
 from .deps import AgentDeps
 from .gateway_session import GatewayDenied
-
-SYSTEM_PROMPT = """
-You are an assistant that reads and updates tenant records on behalf of
-the signed-in user. You have exactly two tools: read_record and
-update_record. You have no other capabilities and cannot act outside
-these two tools. If a tool call is denied, tell the user their action
-was not permitted and stop, do not retry the same call. You will not be
-told why it was denied, do not guess or invent a reason.
-"""
+from .prompts import SYSTEM_PROMPT
 
 
 class ReadRecordArgs(BaseModel):

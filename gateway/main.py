@@ -13,18 +13,24 @@ schema conformance validation (Gate 4). Gate 3 can be disabled via
 ZTAP_GATE3_ENABLED=false for the "Gates 1/2/4 only" baseline the
 Evaluation Plan calls for; see gate3_session_envelope.py.
 
+Every gate's decision is written to gateway/audit_log.py's structured
+JSON-lines log, including per-gate latency, this is what feeds Frame 3's
+performance numbers and the eval harness's blocking-rate reports.
+
 Run with:
     uvicorn gateway.main:app --reload
 """
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
+from .audit_log import audit_log, new_request_id
 from .context import SecurityContext, set_security_context
 from .gate1_auth import Gate1Denied, evaluate_gate1
 from .gate2_authorization import Gate2Denied, Gate2Request, evaluate_gate2
@@ -69,25 +75,50 @@ def invoke(
     ),
     dpop: str = Header(..., description="DPoP proof JWT for this specific request"),
 ):
+    request_id = new_request_id()
+    pipeline_start = time.perf_counter()
+
+    def log(gate: str, decision: str, detail: str, latency_ms: float, **extra) -> None:
+        audit_log(
+            request_id,
+            gate,
+            decision,
+            detail,
+            action=body.action,
+            resource_id=body.resource_id,
+            latency_ms=round(latency_ms, 3),
+            **extra,
+        )
+
     if not authorization.startswith("DPoP "):
-        _audit_log("GATE1", "DENY", "Authorization header missing DPoP scheme")
+        log("GATE1", "DENY", "Authorization header missing DPoP scheme", 0.0)
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
     access_token = authorization.removeprefix("DPoP ")
 
     set_security_context(SecurityContext(raw_token=access_token, raw_dpop_proof=dpop))
 
     # --- Gate 1: Authentication and Tenant Resolution ---
+    gate_start = time.perf_counter()
     try:
         gate1 = evaluate_gate1(http_method=request.method, http_url=str(request.url))
     except Gate1Denied as exc:
-        _audit_log("GATE1", "DENY", str(exc))
+        log("GATE1", "DENY", str(exc), (time.perf_counter() - gate_start) * 1000)
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
+    log(
+        "GATE1",
+        "ALLOW",
+        f"authenticated as {gate1.principal} (tenant={gate1.tenant})",
+        (time.perf_counter() - gate_start) * 1000,
+        tenant=gate1.tenant,
+        principal=gate1.principal,
+    )
 
     principal_ref = f'User::"{gate1.principal}"'
     action_ref = f'Action::"{body.action}"'
     resource_ref = f'Record::"{body.resource_id}"'
 
     # --- Gate 2: Role-Based Tool Authorization (Cedar) ---
+    gate_start = time.perf_counter()
     try:
         evaluate_gate2(
             Gate2Request(
@@ -99,35 +130,81 @@ def invoke(
             )
         )
     except Gate2Denied as exc:
-        _audit_log("GATE2", "DENY", str(exc))
+        log(
+            "GATE2",
+            "DENY",
+            str(exc),
+            (time.perf_counter() - gate_start) * 1000,
+            tenant=gate1.tenant,
+            principal=gate1.principal,
+        )
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
+    log(
+        "GATE2",
+        "ALLOW",
+        f"{gate1.principal} authorized for {body.action} (agent={AGENT_ID})",
+        (time.perf_counter() - gate_start) * 1000,
+        tenant=gate1.tenant,
+        principal=gate1.principal,
+    )
 
     # --- Gate 3: Session Envelope Enforcement ---
+    gate_start = time.perf_counter()
     try:
         evaluate_gate3(tenant=gate1.tenant, principal=gate1.principal, action=body.action)
     except Gate3Denied as exc:
-        _audit_log("GATE3", "DENY", str(exc))
+        log(
+            "GATE3",
+            "DENY",
+            str(exc),
+            (time.perf_counter() - gate_start) * 1000,
+            tenant=gate1.tenant,
+            principal=gate1.principal,
+        )
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
+    log(
+        "GATE3",
+        "ALLOW",
+        "within session envelope threshold",
+        (time.perf_counter() - gate_start) * 1000,
+        tenant=gate1.tenant,
+        principal=gate1.principal,
+    )
 
     # --- Gate 4: Schema Conformance Validation ---
+    gate_start = time.perf_counter()
     try:
         validated_args = evaluate_gate4(body.action, body.args)
     except Gate4Denied as exc:
-        _audit_log("GATE4", "DENY", str(exc))
+        log(
+            "GATE4",
+            "DENY",
+            str(exc),
+            (time.perf_counter() - gate_start) * 1000,
+            tenant=gate1.tenant,
+            principal=gate1.principal,
+        )
         raise HTTPException(status_code=403, detail=GENERIC_DENIAL)
+    log(
+        "GATE4",
+        "ALLOW",
+        "arguments well-formed",
+        (time.perf_counter() - gate_start) * 1000,
+        tenant=gate1.tenant,
+        principal=gate1.principal,
+    )
 
-    _audit_log(
-        "ALL_GATES", "ALLOW", f"{gate1.principal} -> {body.action} on {body.resource_id}"
+    total_latency_ms = (time.perf_counter() - pipeline_start) * 1000
+    log(
+        "ALL_GATES",
+        "ALLOW",
+        f"{gate1.principal} -> {body.action} on {body.resource_id}",
+        total_latency_ms,
+        tenant=gate1.tenant,
+        principal=gate1.principal,
     )
     return {
         "decision": "ALLOW",
         "action": body.action,
         "validated_args": validated_args.model_dump(),
     }
-
-
-def _audit_log(gate: str, decision: str, detail: str) -> None:
-    # Placeholder for the Append-Only Audit Log & Telemetry layer (Frame 2).
-    # Prints for now; swap for real structured logging once you get to
-    # the Monitoring pillar.
-    print(f"[AUDIT] gate={gate} decision={decision} detail={detail}")
