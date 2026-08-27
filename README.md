@@ -18,6 +18,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2:3b
 # quick sanity check (Ctrl+D to exit the chat):
 ollama run llama3.2:3b
+#pull another model if needed, e.g.:
+ollama pull qwen2.5:7b
 
 # Rust + Cedar CLI
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -166,7 +168,7 @@ One named limitation: agent identity here is a gateway-level config constant, no
 
 ## 10. Evaluation harness: structured logging, no-gateway baseline, Tier 1 attacks
  
-This covers everything built and tested so far toward the Evaluation Plan. The prompt-injection tests that go through the real agent (Tier 2) aren't built yet, see section 11.
+This covers everything built and tested so far 
  
 ### Structured audit logging
  
@@ -189,7 +191,7 @@ The second command should just succeed, no denial, no tenant check, nothing stop
 
 ### Tier 1: direct gateway attacks (no LLM)
  
-`eval/run_gateway_attacks.py` runs a corpus of deterministic, malicious requests straight at the gateway, single-request attacks on Gates 2 and 4, malformed-DPoP attacks on Gate 1 (missing proof, garbage proof, and critically, a proof signed with the *wrong* key to simulate a stolen bearer token), and burst-volume attacks on Gate 3. This tests gate robustness in isolation, independent of whether any real agent would ever construct these requests, that's what Tier 2 (section 11) is for.
+`eval/run_gateway_attacks.py` runs a corpus of deterministic, malicious requests straight at the gateway, single-request attacks on Gates 2 and 4, malformed-DPoP attacks on Gate 1 (missing proof, garbage proof, and critically, a proof signed with the *wrong* key to simulate a stolen bearer token), and burst-volume attacks on Gate 3. This tests gate robustness in isolation, independent of whether any real agent would ever construct these requests, that's what Tier 2 is for.
  
 Needs Keycloak and the gateway running (sections 5-6). Run as a module from the project root:
  
@@ -197,7 +199,7 @@ Needs Keycloak and the gateway running (sections 5-6). Run as a module from the 
 python -m eval.run_gateway_attacks
 ```
  
-Expect a PASS/FAIL line per test case, a summary count, and a blocking-rate/latency breakdown pulled from the structured audit log for just this run's time window. Everything in this file has been unit- and integration-tested in isolation (the Cedar entity/context logic, the report formatting, the Gate 3 expected-pattern arithmetic), but the full run against a live Keycloak + gateway hasn't happened yet, this will be the first real end-to-end execution of it.
+Expect a PASS/FAIL line per test case, a summary count, and a blocking-rate/latency breakdown pulled from the structured audit log for just this run's time window. Everything in this file has been unit- and integration-tested in isolation (the Cedar entity/context logic, the report formatting, the Gate 3 expected-pattern arithmetic).
  
 
 ### Tier 2: agent-mediated prompt injection
@@ -213,7 +215,7 @@ python -m eval.run_agent_attacks
 python -m eval.run_agent_attacks --model qwen2.5:7b
 ```
  
-The outcome-determination logic (matching audit log entries to a test case, deciding SAFE/FAIL/PASS) is unit-tested against synthetic log data covering all five branches, but nothing about actually running prompts through a real model has been exercised yet, that needs your machine.
+The outcome-determination logic (matching audit log entries to a test case, deciding SAFE/FAIL/PASS) is unit-tested against synthetic log data covering all five branches.
  
 Two things worth doing once you've run this for real: rerun `T2-G2-03` (the agent-scope bypass claim) under both `ZTAP_AGENT_ID=invoice-agent-v2` and `ZTAP_AGENT_ID=invoice-agent-readonly` and compare, since it's only meaningful as a contrast between the two; and treat any `UNCLEAR` outcome as worth a manual look at `logs/gateway_audit.jsonl` rather than silently discarding it, since it means the harness's own log-correlation logic didn't find a clean resolution, not that nothing happened.
 

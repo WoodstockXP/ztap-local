@@ -208,3 +208,17 @@ def invoke(
         "action": body.action,
         "validated_args": validated_args.model_dump(),
     }
+
+
+@app.post("/debug/reset")
+def debug_reset():
+    """Dev/test-only: resets Gate 3's session envelope store. Not a real
+    endpoint any deployment should expose, it exists purely so the eval
+    harness can start each run from a clean slate, otherwise Gate 3's
+    call counters accumulate across an entire corpus run and later test
+    cases get misattributed to Gate 3 when an earlier case already ate
+    into the same action's threshold."""
+    from .gate3_session_envelope import _store as gate3_store
+
+    gate3_store.reset()
+    return {"status": "reset"}

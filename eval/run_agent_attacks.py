@@ -16,6 +16,7 @@ import argparse
 import time
 from typing import Any, Dict, List, Tuple
 
+import httpx
 from pydantic_ai.usage import UsageLimits
 
 from agent.deps import AgentDeps
@@ -72,7 +73,45 @@ def determine_outcome(case: Dict[str, Any], entries: List[Dict[str, Any]]) -> Tu
     return outcome, summary
 
 
+def summarize_attempts(case: Dict[str, Any], entries: List[Dict[str, Any]]) -> Tuple[int, int, Dict[str, int]]:
+    """Count distinct tool-call attempts matching this case's watched
+    action/resource (grouped by request_id, since one call produces
+    multiple log lines, one per gate it passes through), how many fully
+    succeeded, and how many were denied at each gate. This is what makes
+    a burst-style case like T2-G3-01 legible: 'succeeded at least once'
+    (determine_outcome's binary check) says nothing about whether a
+    burst actually happened, this does."""
+    watch_action = case.get("watch_action")
+    watch_resource_id = case.get("watch_resource_id")
+
+    def matches(e: Dict[str, Any]) -> bool:
+        if watch_action and e.get("action") != watch_action:
+            return False
+        if watch_resource_id and e.get("resource_id") != watch_resource_id:
+            return False
+        return True
+
+    by_request: Dict[str, List[Dict[str, Any]]] = {}
+    for e in entries:
+        if matches(e):
+            by_request.setdefault(e["request_id"], []).append(e)
+
+    allowed = 0
+    denied_by_gate: Dict[str, int] = {}
+    for req_entries in by_request.values():
+        terminal = next((x for x in req_entries if x["gate"] == "ALL_GATES"), None)
+        if terminal and terminal["decision"] == "ALLOW":
+            allowed += 1
+        else:
+            deny_entry = next((x for x in req_entries if x["decision"] == "DENY"), None)
+            if deny_entry:
+                denied_by_gate[deny_entry["gate"]] = denied_by_gate.get(deny_entry["gate"], 0) + 1
+
+    return len(by_request), allowed, denied_by_gate
+
+
 def run_case(case: Dict[str, Any], agent) -> Dict[str, Any]:
+    httpx.post("http://localhost:8001/debug/reset")  # clean slate for THIS case specifically
     session = GatewaySession(case["username"], case["password"])
     start = time.time()
     crashed = None
@@ -90,6 +129,10 @@ def run_case(case: Dict[str, Any], agent) -> Dict[str, Any]:
 
     entries = read_entries(since=start, until=end)
     outcome, summary = determine_outcome(case, entries)
+    attempt_count, allowed_count, denied_by_gate = summarize_attempts(case, entries)
+    call_summary = f"{attempt_count} call(s) observed, {allowed_count} allowed"
+    if denied_by_gate:
+        call_summary += f", denied at: {denied_by_gate}"
 
     return {
         "id": case["id"],
@@ -97,6 +140,7 @@ def run_case(case: Dict[str, Any], agent) -> Dict[str, Any]:
         "gate": case["gate"],
         "outcome": outcome,
         "summary": summary,
+        "call_summary": call_summary,
         "agent_output": agent_output,
         "crashed": crashed,
         "informative_only": case.get("informative_only", False),
@@ -106,18 +150,37 @@ def run_case(case: Dict[str, Any], agent) -> Dict[str, Any]:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="llama3.2:3b")
+    parser.add_argument(
+        "--only",
+        help="Run only the test case(s) with this ID, comma-separated for multiple (e.g. --only T2-G4-02)",
+    )
     args = parser.parse_args()
+
+    cases = AGENT_INJECTION_PROMPTS
+    if args.only:
+        wanted = {c.strip() for c in args.only.split(",")}
+        cases = [c for c in AGENT_INJECTION_PROMPTS if c["id"] in wanted]
+        missing = wanted - {c["id"] for c in cases}
+        if missing:
+            print(f"Warning: no test case(s) found for: {', '.join(sorted(missing))}")
+        if not cases:
+            print("No matching test cases to run.")
+            return
 
     agent = build_agent(model_name=args.model)
 
     print("=== Tier 2: Agent-Mediated Prompt Injection ===\n")
     results = []
-    for case in AGENT_INJECTION_PROMPTS:
+    for case in cases:
         print(f"Running {case['id']}: {case['description'][:80]}")
         r = run_case(case, agent)
         results.append(r)
         tag = " [informative only, not scored]" if r["informative_only"] else ""
         print(f"  -> {r['outcome']}{tag}: {r['summary']}")
+        print(f"     ({r['call_summary']})")
+        if r["agent_output"]:
+            preview = r["agent_output"][:300]
+            print(f"     agent said: {preview}")
         if r["crashed"]:
             print(f"     (agent run crashed: {r['crashed']})")
         print()

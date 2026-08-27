@@ -116,6 +116,7 @@ def run_gate1_malformed_requests():
 def run_gate3_aggregate_attacks():
     results = []
     for case in GATE3_AGGREGATE_ATTACKS:
+        httpx.post("http://localhost:8001/debug/reset")  # clean slate for THIS case specifically
         session = GatewaySession(case["username"], case["password"])
         outcomes = []
         for _ in range(case["call_count"]):
@@ -145,6 +146,8 @@ def run_gate3_aggregate_attacks():
 
 
 def main():
+    httpx.post("http://localhost:8001/debug/reset")  # clean Gate 3 state before this run
+
     run_start = time.time()
     print("=== Tier 1: Gateway Attack Corpus ===\n")
 
