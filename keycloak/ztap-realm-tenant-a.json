@@ -1,5 +1,5 @@
 {
-  "realm": "ztap",
+  "realm": "ztap-tenant-a",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -49,19 +49,6 @@
       "attributes": { "tenant": ["tenant-a"] },
       "credentials": [
         { "type": "password", "value": "alice-pass", "temporary": false }
-      ]
-    },
-    {
-      "username": "bob",
-      "enabled": true,
-      "email": "bob@example.com",
-      "emailVerified": true,
-      "firstName": "Bob",
-      "lastName": "Tenant-B",
-      "requiredActions": [],
-      "attributes": { "tenant": ["tenant-b"] },
-      "credentials": [
-        { "type": "password", "value": "bob-pass", "temporary": false }
       ]
     }
   ]

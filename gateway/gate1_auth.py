@@ -21,6 +21,7 @@ via the admin console (Clients -> ztap-gateway -> Capability config ->
 import base64
 import hashlib
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Dict
@@ -31,9 +32,9 @@ from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 
 from .context import SecurityContext, get_security_context
 
-KEYCLOAK_ISSUER = "http://localhost:8080/realms/ztap"
+KEYCLOAK_ISSUER = os.environ.get("ZTAP_KEYCLOAK_ISSUER", "http://localhost:8080/realms/ztap")
 JWKS_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/certs"
-EXPECTED_CLIENT_ID = "ztap-gateway"
+EXPECTED_CLIENT_ID = os.environ.get("ZTAP_CLIENT_ID", "ztap-gateway")
 
 DPOP_FRESHNESS_WINDOW_SECONDS = 60
 

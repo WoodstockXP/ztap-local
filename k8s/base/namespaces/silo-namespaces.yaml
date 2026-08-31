@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    ztap.io/topology: silo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference
+  labels:
+    ztap.io/topology: silo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traffic-gen-a
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authorizer-a
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: enforcer-a
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-a
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traffic-gen-b
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-b
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authorizer-b
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-b
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: enforcer-b
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-b
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-b
+  labels:
+    ztap.io/topology: silo
+    ztap.io/tenant: tenant-b

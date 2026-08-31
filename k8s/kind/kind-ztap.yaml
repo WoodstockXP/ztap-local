@@ -1,0 +1,17 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ztap
+nodes:
+  - role: control-plane
+  - role: worker
+    labels:
+      ztap.io/node-pool: monitoring
+  - role: worker
+    labels:
+      ztap.io/node-pool: inference
+  - role: worker
+    labels:
+      ztap.io/node-pool: tenant-a
+  - role: worker
+    labels:
+      ztap.io/node-pool: tenant-b

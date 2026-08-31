@@ -16,6 +16,7 @@ result dict or a GatewayDenied exception.
 
 import base64
 import hashlib
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -26,9 +27,9 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 
-KEYCLOAK_TOKEN_URL = "http://localhost:8080/realms/ztap/protocol/openid-connect/token"
-GATEWAY_URL = "http://localhost:8001/invoke"
-CLIENT_ID = "ztap-gateway"
+KEYCLOAK_TOKEN_URL = os.environ.get("ZTAP_KEYCLOAK_TOKEN_URL", "http://localhost:8080/realms/ztap/protocol/openid-connect/token")
+GATEWAY_URL = os.environ.get("ZTAP_GATEWAY_URL", "http://localhost:8001/invoke")
+CLIENT_ID = os.environ.get("ZTAP_CLIENT_ID", "ztap-gateway")
 
 
 class GatewayDenied(Exception):

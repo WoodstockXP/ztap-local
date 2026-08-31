@@ -18,6 +18,7 @@ Usage:
 import argparse
 import base64
 import hashlib
+import os
 import time
 import uuid
 
@@ -25,9 +26,9 @@ import httpx
 import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
 
-KEYCLOAK_TOKEN_URL = "http://localhost:8080/realms/ztap/protocol/openid-connect/token"
-GATEWAY_URL = "http://localhost:8001/invoke"
-CLIENT_ID = "ztap-gateway"
+KEYCLOAK_TOKEN_URL = os.environ.get("ZTAP_KEYCLOAK_TOKEN_URL", "http://localhost:8080/realms/ztap/protocol/openid-connect/token")
+GATEWAY_URL = os.environ.get("ZTAP_GATEWAY_URL", "http://localhost:8001/invoke")
+CLIENT_ID = os.environ.get("ZTAP_CLIENT_ID", "ztap-gateway")
 
 
 def jwk_from_ec_public_key(public_key) -> dict:
