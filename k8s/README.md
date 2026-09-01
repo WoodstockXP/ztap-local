@@ -4,7 +4,7 @@ This covers the Kubernetes-deployed portion of the project (outline Phase 5 onwa
 
 ## Status
 
-Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up and reachable on a local kind cluster. NetworkPolicies, gVisor sandboxing, and the Bridge topology are not yet built.
+Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces. gVisor sandboxing and the Bridge topology are not yet built.
 
 ## Prerequisites
 
@@ -20,7 +20,20 @@ chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 kubectl version --client
 ```
 
-Docker must already be installed and running (see the top-level README).
+Docker must already be installed and running (see the top-level README). The Cilium CLI is installed automatically by `install-cilium.sh` in step 0 below if it's not already on your PATH.
+
+## 0. Recreate the cluster with Cilium as the CNI
+
+kind's default CNI (kindnet) doesn't enforce `NetworkPolicy` at all, silently allowing everything, so it needs to be swapped out before NetworkPolicy is worth writing. `k8s/kind/kind-ztap.yaml` now sets `disableDefaultCNI: true`, which only takes effect on cluster creation, so if you already have a `ztap` cluster from the previous steps, delete it first:
+
+```bash
+kind delete cluster --name ztap
+kind create cluster --config k8s/kind/kind-ztap.yaml
+chmod +x k8s/kind/install-cilium.sh
+k8s/kind/install-cilium.sh
+```
+
+Cilium has to be installed before any workload is deployed, a cluster with no CNI at all can't schedule pods, they'll sit `Pending` forever. `cilium status --wait` confirms it's actually up, not just applied, before you move on.
 
 ## 1. Bring up both tenant's Silo stacks
 
@@ -67,7 +80,7 @@ kubectl exec -it deploy/ztap-gateway -n enforcer-a -- env \
 kubectl exec -it deploy/ztap-gateway -n enforcer-b -- env \
   ZTAP_KEYCLOAK_TOKEN_URL=http://keycloak.authorizer-b.svc.cluster.local:8080/realms/ztap-tenant-b/protocol/openid-connect/token \
   ZTAP_GATEWAY_URL=http://localhost:8001/invoke \
-  python client/call_gateway.py bob bob-pass readRecord rec-001
+  python client/call_gateway.py bob bob-pass readRecord rec-002
 ```
 
 Expect `200 ALLOW` here too.
@@ -89,7 +102,41 @@ Expect `403 Invalid issuer`, tenant B's gateway only trusts `authorizer-b`, so a
  
 Keycloak's `start-dev` mode stamps each token's `iss` claim dynamically, from whatever host/port the request actually arrived on, not a fixed value. If you request a token via `kubectl port-forward` to `localhost:8080`, the token's `iss` becomes `http://localhost:8080/...`. The gateway pod's `ZTAP_KEYCLOAK_ISSUER` is set to the in-cluster DNS name (`keycloak.authorizer-a.svc.cluster.local`), since that's the only address actually reachable from inside the pod, so a `localhost`-issued token never matches and Gate 1 denies with `Invalid issuer`. Requesting the token through the same in-cluster hostname the gateway expects (as in step 3 above) avoids this entirely, since it's also how the eval harness will reach Keycloak once it runs in-cluster.
 
-## 5. Tear down
+## 5. Check that the tenants can't cross-reach each other's pods at all
+
+Step 4 proved the app-level check (Gate 1's issuer validation) blocks cross-tenant identity reuse. This step proves something stronger and independent of it: that `enforcer-a`'s pod can't even open a TCP connection to `authorizer-b`'s pod, regardless of what token it presents. Bring the NetworkPolicies in:
+
+```bash
+kubectl apply -f k8s/base/network-policy/default-deny-all.yaml
+kubectl apply -f k8s/base/network-policy/allow-dns.yaml
+kubectl apply -f k8s/base/network-policy/allow-enforcer-authorizer.yaml
+```
+
+(`deploy-all.sh` applies these automatically on a full run; this is only needed if you brought the tenants up individually.) First confirm the allowed path still works, tenant A's gateway reaching its own Keycloak, same command as step 3:
+
+```bash
+kubectl exec -it deploy/ztap-gateway -n enforcer-a -- env \
+  ZTAP_KEYCLOAK_TOKEN_URL=http://keycloak.authorizer-a.svc.cluster.local:8080/realms/ztap-tenant-a/protocol/openid-connect/token \
+  ZTAP_GATEWAY_URL=http://localhost:8001/invoke \
+  python client/call_gateway.py alice alice-pass readRecord rec-001
+```
+
+Still `200 ALLOW`, the default-deny baseline didn't break the one path we explicitly opened. Now try to reach tenant B's Keycloak from tenant A's gateway pod, at the network layer, no gateway app code involved at all:
+
+```bash
+kubectl exec -it deploy/ztap-gateway -n enforcer-a -- python3 -c "
+import httpx
+try:
+    r = httpx.get('http://keycloak.authorizer-b.svc.cluster.local:8080/realms/ztap-tenant-b/.well-known/openid-configuration', timeout=5)
+    print('REACHABLE', r.status_code)
+except Exception as e:
+    print('BLOCKED', type(e).__name__)
+"
+```
+
+Expect `BLOCKED ConnectTimeout`. Before step 5, this same command would have printed `REACHABLE 200`, Kubernetes allows all pod-to-pod traffic by default, so the request would have gone through fine and only gotten rejected later, at the application layer, if you'd tried to actually use a resulting token. Now it's refused before a single byte of application logic runs.
+
+## 6. Tear down
 
 ```bash
 kind delete cluster --name ztap
@@ -97,7 +144,7 @@ kind delete cluster --name ztap
 
 ## Next up
 
-- Cilium `NetworkPolicy` per tenant, this is what actually makes the Silo isolation claim testable, not just the namespace split.
 - gVisor `RuntimeClass` on the agent sandbox pods.
 - Bridge topology manifests (shared `gateway-ingress` / `authorizer` namespaces).
 - Point `eval/run_gateway_attacks.py` and `eval/run_agent_attacks.py` at the in-cluster stack instead of localhost.
+- Once the agent/traffic-gen workload is deployed into `traffic-gen-a`/`traffic-gen-b`, extend the NetworkPolicy set with the allow rules for `traffic-gen-X -> enforcer-X` and `traffic-gen-X -> inference`, they're not needed yet since nothing lives in those namespaces.
