@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: authorizer-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+      tenant: tenant-b
+  template:
+    metadata:
+      labels:
+        app: keycloak
+        tenant: tenant-b
+    spec:
+      nodeSelector:
+        ztap.io/node-pool: tenant-b
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:latest
+          args: ["start-dev", "--import-realm"]
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              value: admin
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: realm-import
+          configMap:
+            name: ztap-realm-tenant-b
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: authorizer-b
+spec:
+  selector:
+    app: keycloak
+    tenant: tenant-b
+  ports:
+    - port: 8080
+      targetPort: 8080

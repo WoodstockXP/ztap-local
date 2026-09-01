@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ztap-gateway
+  namespace: enforcer-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ztap-gateway
+      tenant: tenant-b
+  template:
+    metadata:
+      labels:
+        app: ztap-gateway
+        tenant: tenant-b
+    spec:
+      nodeSelector:
+        ztap.io/node-pool: tenant-b
+      containers:
+        - name: ztap-gateway
+          image: ztap-app:local
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "gateway.main:app", "--host", "0.0.0.0", "--port", "8001"]
+          env:
+            - name: ZTAP_KEYCLOAK_ISSUER
+              value: http://keycloak.authorizer-b.svc.cluster.local:8080/realms/ztap-tenant-b
+            - name: ZTAP_CLIENT_ID
+              value: ztap-gateway
+            - name: ZTAP_AGENT_ID
+              value: invoice-agent-v2
+          ports:
+            - containerPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ztap-gateway
+  namespace: enforcer-b
+spec:
+  selector:
+    app: ztap-gateway
+    tenant: tenant-b
+  ports:
+    - port: 8001
+      targetPort: 8001
