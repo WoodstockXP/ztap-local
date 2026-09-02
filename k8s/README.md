@@ -112,7 +112,14 @@ kubectl apply -f k8s/base/network-policy/allow-dns.yaml
 kubectl apply -f k8s/base/network-policy/allow-enforcer-authorizer.yaml
 ```
 
-(`deploy-all.sh` applies these automatically on a full run; this is only needed if you brought the tenants up individually.) First confirm the allowed path still works, tenant A's gateway reaching its own Keycloak, same command as step 3:
+`deploy-all.sh` deliberately does not apply these on its own. If it did, they'd already be active by the time you reached step 4 above, and the cross-tenant token fetch would fail at the network layer before it ever reached Gate 1, showing a `ConnectTimeout` instead of the `403 Invalid issuer` step 4 is meant to demonstrate. Keeping this as a separate, explicit step is what makes step 4 and step 5 each show their own layer cleanly, rather than one silently masking the other.
+ 
+```bash
+#Run this in case you want to retry step 4
+kubectl delete -f k8s/base/network-policy/default-deny-all.yaml -f k8s/base/network-policy/allow-dns.yaml -f k8s/base/network-policy/allow-enforcer-authorizer.yaml
+```
+
+First confirm the allowed path still works, tenant A's gateway reaching its own Keycloak, same command as step 3:
 
 ```bash
 kubectl exec -it deploy/ztap-gateway -n enforcer-a -- env \
@@ -140,6 +147,26 @@ Expect `BLOCKED ConnectTimeout`. Before step 5, this same command would have pri
 
 ```bash
 kind delete cluster --name ztap
+```
+
+## Useful commands
+
+### Log check
+
+```bash
+#Replace enforcer-x with either enforcer-a or enforcer-b
+kubectl logs -n enforcer-x deploy/ztap-gateway --tail=20
+```
+
+### Check cilium status & resources
+
+```bash
+#Overall status
+cilium status
+#Pods
+kubectl get pods -n kube-system -l k8s.app=cilium
+#Nodes
+kubectl get nodes -L ztap.io/node-pool
 ```
 
 ## Next up

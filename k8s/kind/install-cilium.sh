@@ -8,4 +8,6 @@ if ! command -v cilium >/dev/null 2>&1; then
   rm cilium-linux-${CLI_ARCH}.tar.gz
 fi
 cilium install --version 1.16.5
+kubectl -n kube-system rollout status daemonset/cilium --timeout=300s
+kubectl -n kube-system rollout status deployment/cilium-operator --timeout=300s
 cilium status --wait
