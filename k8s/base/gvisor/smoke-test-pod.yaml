@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gvisor-smoke-test
+  namespace: tenant-a
+spec:
+  runtimeClassName: gvisor
+  nodeSelector:
+    ztap.io/gvisor: "true"
+  restartPolicy: Never
+  containers:
+    - name: smoke-test
+      image: busybox
+      command: ["dmesg"]

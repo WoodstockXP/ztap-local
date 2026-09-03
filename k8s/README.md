@@ -4,7 +4,7 @@ This covers the Kubernetes-deployed portion of the project (outline Phase 5 onwa
 
 ## Status
 
-Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces. gVisor sandboxing and the Bridge topology are not yet built.
+Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces, and gVisor available and smoke-tested on the `tenant-a`/`tenant-b` nodes. Bridge topology is not yet built; gVisor is not yet wired into a real workload since the agent sandbox pod doesn't exist yet.
 
 ## Prerequisites
 
@@ -26,8 +26,12 @@ Docker must already be installed and running (see the top-level README). The Cil
 
 kind's default CNI (kindnet) doesn't enforce `NetworkPolicy` at all, silently allowing everything, so it needs to be swapped out before NetworkPolicy is worth writing. `k8s/kind/kind-ztap.yaml` now sets `disableDefaultCNI: true`, which only takes effect on cluster creation, so if you already have a `ztap` cluster from the previous steps, delete it first:
 
+`kind-ztap.yaml` also now references `ztap-node-gvisor:local` for the `tenant-a`/`tenant-b` workers (step 6), which means that image has to exist *before* `kind create cluster` runs, on every bootstrap, not just the first time. If you're migrating an existing cluster forward, `build-gvisor-node-image.sh` auto-detects the right base tag from it. If you're starting completely fresh (no `ztap` cluster running at all, e.g. after a full teardown), there's nothing to auto-detect from, pass the tag explicitly; `kind create cluster` will tell you the exact tag it wants if you forget and it fails on the control-plane image:
+
 ```bash
 kind delete cluster --name ztap
+chmod +x k8s/kind/build-gvisor-node-image.sh
+k8s/kind/build-gvisor-node-image.sh kindest/node:v1.37.0
 kind create cluster --config k8s/kind/kind-ztap.yaml
 chmod +x k8s/kind/install-cilium.sh
 k8s/kind/install-cilium.sh
@@ -143,7 +147,43 @@ except Exception as e:
 
 Expect `BLOCKED ConnectTimeout`. Before step 5, this same command would have printed `REACHABLE 200`, Kubernetes allows all pod-to-pod traffic by default, so the request would have gone through fine and only gotten rejected later, at the application layer, if you'd tried to actually use a resulting token. Now it's refused before a single byte of application logic runs.
 
-## 6. Tear down
+## 6. Rebuild the cluster once more with gVisor-enabled nodes
+
+This needs another cluster recreation, gVisor requires a custom node image with the `runsc` binaries baked in, which can only be set at cluster-creation time, same constraint as the Cilium CNI change in step 0. If you're following the steps in order from a cluster that's already up, build the custom image first, while the current cluster (and its node image) still exists to auto-detect from. (If you're instead bootstrapping completely fresh with no cluster running at all, see step 0's note above, the image has to be built with an explicit tag before the very first `kind create cluster` call, this section assumes that's already done.)
+
+```bash
+chmod +x k8s/kind/build-gvisor-node-image.sh
+k8s/kind/build-gvisor-node-image.sh
+```
+
+Then recreate everything:
+
+```bash
+kind delete cluster --name ztap
+kind create cluster --config k8s/kind/kind-ztap.yaml
+k8s/kind/install-cilium.sh
+k8s/kind/deploy-all.sh
+kubectl apply -f k8s/base/gvisor/runtimeclass.yaml
+```
+
+`kind-ztap.yaml` now points the `tenant-a` and `tenant-b` worker nodes at `ztap-node-gvisor:local` instead of kind's default image, and patches every node's containerd config to register `runsc` as a runtime handler. Registering the handler is harmless on nodes that don't actually have the `runsc` binary (monitoring, inference, control-plane), containerd just won't be able to serve pods that ask for it there, which is exactly what we want: `runtimeclass.yaml`'s `nodeSelector` only allows scheduling onto nodes labeled `ztap.io/gvisor: "true"`, i.e. `tenant-a` and `tenant-b`.
+
+## 7. Verify gVisor is actually running, not silently falling back
+
+```bash
+kubectl apply -f k8s/base/gvisor/smoke-test-pod.yaml
+kubectl logs gvisor-smoke-test -n tenant-a
+```
+
+Under gVisor, `dmesg` doesn't print the host kernel's boot log, it prints gVisor's own, since the sandbox implements the syscall interface itself rather than passing through to the host. Expect lines starting with `Starting gVisor...`, not a normal Linux kernel banner. If the pod instead fails to schedule at all, check `kubectl describe pod gvisor-smoke-test -n tenant-a` for the reason, the most likely cause is the node image build not actually completing before cluster recreation, or the `runsc` binary download failing partway (this Dockerfile has no retry logic, unlike `install-cilium.sh`'s CLI download, worth adding if it turns out to be flaky on your connection). Clean up once confirmed:
+
+```bash
+kubectl delete -f k8s/base/gvisor/smoke-test-pod.yaml
+```
+
+This proves gVisor itself works on this machine. It's deliberately not wired into the actual agent sandbox yet, that pod doesn't exist in the manifests so far, only Keycloak and the gateway do. Once the agent workload is built, giving it `runtimeClassName: gvisor` and the `ztap.io/gvisor: "true"` node selector is a one-line addition, not new infrastructure.
+
+## 8. Tear down
 
 ```bash
 kind delete cluster --name ztap
@@ -171,7 +211,7 @@ kubectl get nodes -L ztap.io/node-pool
 
 ## Next up
 
-- gVisor `RuntimeClass` on the agent sandbox pods.
+- Build the actual agent/workload pod and deploy it into `traffic-gen-a`/`traffic-gen-b`; give it `runtimeClassName: gvisor` from the start rather than retrofitting it.
 - Bridge topology manifests (shared `gateway-ingress` / `authorizer` namespaces).
 - Point `eval/run_gateway_attacks.py` and `eval/run_agent_attacks.py` at the in-cluster stack instead of localhost.
 - Once the agent/traffic-gen workload is deployed into `traffic-gen-a`/`traffic-gen-b`, extend the NetworkPolicy set with the allow rules for `traffic-gen-X -> enforcer-X` and `traffic-gen-X -> inference`, they're not needed yet since nothing lives in those namespaces.

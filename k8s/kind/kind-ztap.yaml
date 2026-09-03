@@ -4,6 +4,10 @@ name: ztap
 networking:
   disableDefaultCNI: true
   podSubnet: 10.244.0.0/16
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runsc] 
+      runtime_type = "io.containerd.runsc.v1"
 nodes:
   - role: control-plane
   - role: worker
@@ -13,8 +17,12 @@ nodes:
     labels:
       ztap.io/node-pool: inference
   - role: worker
+    image: ztap-node-gvisor:local
     labels:
       ztap.io/node-pool: tenant-a
+      ztap.io/gvisor: "true"
   - role: worker
+    image: ztap-node-gvisor:local
     labels:
       ztap.io/node-pool: tenant-b
+      ztap.io/gvisor: "true"
