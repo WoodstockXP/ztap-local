@@ -9,6 +9,8 @@ injection, since the gateway makes its own independent decision on every
 call regardless of what the agent claims.
 """
 
+import os
+
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -17,6 +19,8 @@ from pydantic_ai.providers.ollama import OllamaProvider
 from .deps import AgentDeps
 from .gateway_session import GatewayDenied
 from .prompts import SYSTEM_PROMPT
+
+OLLAMA_BASE_URL = os.environ.get("ZTAP_OLLAMA_BASE_URL", "http://localhost:11434/v1/")
 
 
 class ReadRecordArgs(BaseModel):
@@ -42,7 +46,8 @@ class UpdateRecordArgs(BaseModel):
 def build_agent(model_name: str = "llama3.2:3b") -> Agent[AgentDeps, str]:
     model = OpenAIChatModel(
         model_name,
-        provider=OllamaProvider(base_url="http://localhost:11434/v1/"),
+        base_url=OLLAMA_BASE_URL,
+        provider=OllamaProvider(base_url=OLLAMA_BASE_URL),
     )
     agent = Agent(model, deps_type=AgentDeps, system_prompt=SYSTEM_PROMPT)
 

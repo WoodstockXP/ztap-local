@@ -9,6 +9,8 @@ difference is the pipeline's actual contribution, not an artifact of a
 differently-behaved agent.
 """
 
+import os
+
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -18,6 +20,7 @@ from baseline import no_gateway_backend
 
 from .prompts import SYSTEM_PROMPT
 
+OLLAMA_BASE_URL = os.environ.get("ZTAP_OLLAMA_BASE_URL", "http://localhost:11434/v1/")
 
 class ReadRecordArgs(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -33,7 +36,8 @@ class UpdateRecordArgs(BaseModel):
 def build_no_gateway_agent(model_name: str = "llama3.2:3b") -> Agent[None, str]:
     model = OpenAIChatModel(
         model_name,
-        provider=OllamaProvider(base_url="http://localhost:11434/v1/"),
+        base_url=OLLAMA_BASE_URL,
+        provider=OllamaProvider(base_url=OLLAMA_BASE_URL),
     )
     agent = Agent(model, system_prompt=SYSTEM_PROMPT)
 

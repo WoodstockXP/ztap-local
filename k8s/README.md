@@ -4,7 +4,8 @@ This covers the Kubernetes-deployed portion of the project (outline Phase 5 onwa
 
 ## Status
 
-Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces, and gVisor available and smoke-tested on the `tenant-a`/`tenant-b` nodes. Bridge topology is not yet built; gVisor is not yet wired into a real workload since the agent sandbox pod doesn't exist yet.
+Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces, gVisor is smoke-tested and now protects a real `agent-sandbox` pod in each of `tenant-a`/`tenant-b`, backed by a shared Ollama deployment in `inference`. `traffic-gen-a`/`traffic-gen-b` are still empty. Bridge topology is not yet built.
+
 
 ## Prerequisites
 
@@ -181,9 +182,40 @@ Under gVisor, `dmesg` doesn't print the host kernel's boot log, it prints gVisor
 kubectl delete -f k8s/base/gvisor/smoke-test-pod.yaml
 ```
 
-This proves gVisor itself works on this machine. It's deliberately not wired into the actual agent sandbox yet, that pod doesn't exist in the manifests so far, only Keycloak and the gateway do. Once the agent workload is built, giving it `runtimeClassName: gvisor` and the `ztap.io/gvisor: "true"` node selector is a one-line addition, not new infrastructure.
+This proves gVisor itself works on this machine. It's deliberately not wired into the actual agent sandbox yet, that pod doesn't exist in the manifests so far, only Keycloak and the gateway do. Step 8 below is that pod.
 
-## 8. Tear down
+## 8. Deploy the real Agent Sandbox and Ollama
+
+Per the diagram, the gVisor-protected "Agent Sandbox" lives in `tenant-X` (the untrusted compute zone), not `traffic-gen-X`, that namespace is for whatever originates test traffic later, a separate concern. This also needs the shared `inference` service (Ollama), which doesn't exist yet either, everything up to now has only used the Keycloak/gateway path.
+
+```bash
+kubectl apply -f k8s/base/network-policy/allow-agent-inference.yaml
+chmod +x k8s/kind/deploy-agents.sh
+k8s/kind/deploy-agents.sh
+```
+
+This applies the new NetworkPolicy first (each tenant's agent can reach its own gateway and the shared `inference` service, nothing else), then deploys Ollama into `inference` and an idle `agent-sandbox` pod into each of `tenant-a`/`tenant-b`, gVisor-protected via the same `RuntimeClass` as the smoke test. The Ollama pod pulls `llama3.2:3b` in a `postStart` hook, a multi-gigabyte download, so it won't report `Ready` immediately, the script doesn't block on it. Check progress with:
+
+```bash
+kubectl get pods -n inference
+kubectl exec -n inference deploy/ollama -- ollama list
+```
+
+Once `ollama list` shows `llama3.2:3b`, run the agent for real, same command as the top-level README's local Compose instructions, just executed inside the sandboxed pod instead of on your machine directly:
+
+```bash
+kubectl exec -it deploy/agent-sandbox -n tenant-a -- python -m agent.run_agent alice alice-pass "Read record rec-001"
+```
+
+This exercises the entire pipeline in-cluster: the agent calls Ollama over the network for inference, decides to call `readRecord`, that call goes through `GatewaySession` to `enforcer-a`'s gateway, through all four gates, and the result comes back to the agent, which the model then turns into its final answer. Worth also trying the cross-tenant case from the `run_agent.py` docstring, alice attempting one of bob's records, to confirm Gate 2's tenant boundary still holds when the request originates from a real model-driven agent rather than the test client:
+
+```bash
+kubectl exec -it deploy/agent-sandbox -n tenant-a -- python -m agent.run_agent alice alice-pass "Read record rec-002"
+```
+
+Expect the agent's final answer to report a denial, sourced from the gateway's actual `403`, not the model simply refusing on its own.
+
+## 9. Tear down
 
 ```bash
 kind delete cluster --name ztap
@@ -211,7 +243,6 @@ kubectl get nodes -L ztap.io/node-pool
 
 ## Next up
 
-- Build the actual agent/workload pod and deploy it into `traffic-gen-a`/`traffic-gen-b`; give it `runtimeClassName: gvisor` from the start rather than retrofitting it.
-- Bridge topology manifests (shared `gateway-ingress` / `authorizer` namespaces).
-- Point `eval/run_gateway_attacks.py` and `eval/run_agent_attacks.py` at the in-cluster stack instead of localhost.
-- Once the agent/traffic-gen workload is deployed into `traffic-gen-a`/`traffic-gen-b`, extend the NetworkPolicy set with the allow rules for `traffic-gen-X -> enforcer-X` and `traffic-gen-X -> inference`, they're not needed yet since nothing lives in those namespaces.
+- Bridge topology manifests (shared `gateway-ingress` / `authorizer` namespaces, deliberately without the default-deny-all/per-tenant NetworkPolicy split built here, that's the actual isolation-depth variable the paper measures).
+- Point `eval/run_gateway_attacks.py` and `eval/run_agent_attacks.py` at the in-cluster stack instead of localhost, they can now target the real `agent-sandbox` pods instead of running locally against `localhost` Ollama.
+- `traffic-gen-a`/`traffic-gen-b` are still empty. Once the eval harness moves in-cluster, that's presumably where it runs from, dispatching requests to the agent sandboxes rather than being the sandbox itself.
