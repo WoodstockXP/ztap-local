@@ -23,10 +23,6 @@ spec:
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
-          lifecycle:
-            postStart:
-              exec:
-                command: ["ollama", "pull", "llama3.2:3b"]
           readinessProbe:
             tcpSocket:
               port: 11434

@@ -46,7 +46,6 @@ class UpdateRecordArgs(BaseModel):
 def build_agent(model_name: str = "llama3.2:3b") -> Agent[AgentDeps, str]:
     model = OpenAIChatModel(
         model_name,
-        base_url=OLLAMA_BASE_URL,
         provider=OllamaProvider(base_url=OLLAMA_BASE_URL),
     )
     agent = Agent(model, deps_type=AgentDeps, system_prompt=SYSTEM_PROMPT)

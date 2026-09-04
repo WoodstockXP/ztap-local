@@ -190,14 +190,14 @@ Per the diagram, the gVisor-protected "Agent Sandbox" lives in `tenant-X` (the u
 
 ```bash
 kubectl apply -f k8s/base/network-policy/allow-agent-inference.yaml
+kubectl apply -f k8s/base/network-policy/allow-agent-authorizer.yaml
 chmod +x k8s/kind/deploy-agents.sh
 k8s/kind/deploy-agents.sh
 ```
 
-This applies the new NetworkPolicy first (each tenant's agent can reach its own gateway and the shared `inference` service, nothing else), then deploys Ollama into `inference` and an idle `agent-sandbox` pod into each of `tenant-a`/`tenant-b`, gVisor-protected via the same `RuntimeClass` as the smoke test. The Ollama pod pulls `llama3.2:3b` in a `postStart` hook, a multi-gigabyte download, so it won't report `Ready` immediately, the script doesn't block on it. Check progress with:
+This applies the new NetworkPolicy first: each tenant's agent needs egress to two places, its own tenant's Keycloak (to fetch its own DPoP-bound token directly, the same two-step flow the test client uses) and its own tenant's gateway (to actually invoke tools), plus the shared `inference` service, nothing else. `inference` also gets one narrow addition to the default-deny baseline, HTTPS egress to the internet, needed for the one-time pull of `llama3.2:3b` from `registry.ollama.ai`. No other namespace gets internet egress; Gate evaluation and the gateway pipeline never need to leave the cluster, only model provisioning does.
 
 ```bash
-kubectl get pods -n inference
 kubectl exec -n inference deploy/ollama -- ollama list
 ```
 
