@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-sandbox
+  namespace: tenant-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-sandbox
+      tenant: tenant-b
+  template:
+    metadata:
+      labels:
+        app: agent-sandbox
+        tenant: tenant-b
+    spec:
+      runtimeClassName: gvisor
+      nodeSelector:
+        ztap.io/node-pool: tenant-b
+        ztap.io/gvisor: "true"
+      containers:
+        - name: agent-sandbox
+          image: ztap-app:local
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          env:
+            - name: ZTAP_KEYCLOAK_TOKEN_URL
+              value: http://keycloak.authorizer.svc.cluster.local:8080/realms/ztap/protocol/openid-connect/token
+            - name: ZTAP_GATEWAY_URL
+              value: http://ztap-gateway.gateway-ingress.svc.cluster.local:8001/invoke
+            - name: ZTAP_OLLAMA_BASE_URL
+              value: http://ollama.inference.svc.cluster.local:11434/v1/
+            - name: ZTAP_CLIENT_ID
+              value: ztap-gateway

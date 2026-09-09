@@ -1,10 +1,10 @@
-# ZTAP on Kubernetes: Bridge and Silo
+# ZTAP on Kubernetes: Silo
 
 This covers the Kubernetes-deployed portion of the project (outline Phase 5 onward), separate from the top-level README, which covers the local Docker Compose harness (Phase 4) that this still depends on for the actual gateway/agent/policy code.
 
 ## Status
 
-Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces, gVisor is smoke-tested and now protects a real `agent-sandbox` pod in each of `tenant-a`/`tenant-b`, backed by a shared Ollama deployment in `inference`. `traffic-gen-a`/`traffic-gen-b` are still empty. Bridge topology is not yet built.
+Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces. gVisor is smoke-tested and protects a real `agent-sandbox` pod in each of `tenant-a`/`tenant-b`, backed by a shared Ollama deployment in `inference`, verified end-to-end with a live LLM-driven agent run. `traffic-gen-a`/`traffic-gen-b` are still empty.
 
 
 ## Prerequisites
@@ -243,6 +243,6 @@ kubectl get nodes -L ztap.io/node-pool
 
 ## Next up
 
-- Bridge topology manifests (shared `gateway-ingress` / `authorizer` namespaces, deliberately without the default-deny-all/per-tenant NetworkPolicy split built here, that's the actual isolation-depth variable the paper measures).
 - Point `eval/run_gateway_attacks.py` and `eval/run_agent_attacks.py` at the in-cluster stack instead of localhost, they can now target the real `agent-sandbox` pods instead of running locally against `localhost` Ollama.
 - `traffic-gen-a`/`traffic-gen-b` are still empty. Once the eval harness moves in-cluster, that's presumably where it runs from, dispatching requests to the agent sandboxes rather than being the sandbox itself.
+- Bridge topology: see `k8s/bridge/README.md`.

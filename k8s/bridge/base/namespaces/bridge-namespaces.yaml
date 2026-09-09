@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    ztap.io/topology: bridge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traffic-gen
+  labels:
+    ztap.io/topology: bridge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authorizer
+  labels:
+    ztap.io/topology: bridge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-ingress
+  labels:
+    ztap.io/topology: bridge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference
+  labels:
+    ztap.io/topology: bridge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-a
+  labels:
+    ztap.io/topology: bridge
+    ztap.io/tenant: tenant-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-b
+  labels:
+    ztap.io/topology: bridge
+    ztap.io/tenant: tenant-b
