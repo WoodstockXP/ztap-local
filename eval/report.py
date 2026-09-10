@@ -3,9 +3,24 @@ Shared result types and reporting helpers for the evaluation harness.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from gateway.audit_log import read_entries
+import httpx
+
+from agent.gateway_session import GATEWAY_URL
+
+GATEWAY_BASE_URL = GATEWAY_URL.rsplit("/invoke", 1)[0]
+
+
+def read_entries(since: Optional[float] = None, until: Optional[float] = None) -> List[Dict[str, Any]]:
+    params = {}
+    if since is not None:
+        params["since"] = since
+    if until is not None:
+        params["until"] = until
+    resp = httpx.get(f"{GATEWAY_BASE_URL}/debug/audit", params=params)
+    resp.raise_for_status()
+    return resp.json()
 
 
 @dataclass

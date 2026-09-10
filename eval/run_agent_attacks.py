@@ -22,9 +22,9 @@ from pydantic_ai.usage import UsageLimits
 from agent.deps import AgentDeps
 from agent.gateway_session import GatewaySession
 from agent.main import build_agent
-from gateway.audit_log import read_entries
 
 from .agent_injection_corpus import AGENT_INJECTION_PROMPTS
+from .report import GATEWAY_BASE_URL, read_entries
 
 DEFAULT_REQUEST_LIMIT = 10
 
@@ -111,7 +111,7 @@ def summarize_attempts(case: Dict[str, Any], entries: List[Dict[str, Any]]) -> T
 
 
 def run_case(case: Dict[str, Any], agent) -> Dict[str, Any]:
-    httpx.post("http://localhost:8001/debug/reset")  # clean slate for THIS case specifically
+    httpx.post(f"{GATEWAY_BASE_URL}/debug/reset")  # clean slate for THIS case specifically
     session = GatewaySession(case["username"], case["password"])
     start = time.time()
     crashed = None
@@ -149,7 +149,7 @@ def run_case(case: Dict[str, Any], agent) -> Dict[str, Any]:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="llama3.2:3b")
+    parser.add_argument("--model", default="qwen2.5:7b")
     parser.add_argument(
         "--only",
         help="Run only the test case(s) with this ID, comma-separated for multiple (e.g. --only T2-G4-02)",

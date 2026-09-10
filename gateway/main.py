@@ -222,3 +222,11 @@ def debug_reset():
 
     gate3_store.reset()
     return {"status": "reset"}
+
+
+@app.get("/debug/audit")
+def debug_audit(since: float = None, until: float = None):
+    """Dev/test-only: exposes read_entries() over HTTP. The eval harness needs this whenever it runs somewhere other than the gateway's own process, which in Kubernetes is always, the audit log is a local file inside this pod, not shared with whatever pod actually runs the harness."""
+    from .audit_log import read_entries
+
+    return read_entries(since=since, until=until)

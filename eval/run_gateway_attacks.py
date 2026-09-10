@@ -33,7 +33,7 @@ from .attack_corpus import (
     GATE3_AGGREGATE_ATTACKS,
     GATEWAY_ATTACKS,
 )
-from .report import HarnessResult, blocking_rate_report, print_summary
+from .report import GATEWAY_BASE_URL, HarnessResult, blocking_rate_report, print_summary
 
 
 def run_single_request_attacks():
@@ -116,7 +116,7 @@ def run_gate1_malformed_requests():
 def run_gate3_aggregate_attacks():
     results = []
     for case in GATE3_AGGREGATE_ATTACKS:
-        httpx.post("http://localhost:8001/debug/reset")  # clean slate for THIS case specifically
+        httpx.post(f"{GATEWAY_BASE_URL}/debug/reset")  # clean slate for THIS case specifically
         session = GatewaySession(case["username"], case["password"])
         outcomes = []
         for _ in range(case["call_count"]):
@@ -146,7 +146,7 @@ def run_gate3_aggregate_attacks():
 
 
 def main():
-    httpx.post("http://localhost:8001/debug/reset")  # clean Gate 3 state before this run
+    httpx.post(f"{GATEWAY_BASE_URL}/debug/reset")  # clean Gate 3 state before this run
 
     run_start = time.time()
     print("=== Tier 1: Gateway Attack Corpus ===\n")
