@@ -15,11 +15,11 @@ docker compose version
 
 # Ollama
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2:3b
-# quick sanity check (Ctrl+D to exit the chat):
-ollama run llama3.2:3b
-#pull another model if needed, e.g.:
 ollama pull qwen2.5:7b
+# quick sanity check (Ctrl+D to exit the chat):
+ollama run qwen2.5:7b
+#pull another model if needed, e.g.:
+ollama pull llama3.2:3b
 
 # Rust + Cedar CLI
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -117,7 +117,7 @@ python -m agent.run_testmodel
  
 This uses Pydantic AI's `TestModel`, which calls both tools with placeholder arguments rather than running a real LLM. You should see one block showing the gateway allowing, and one showing it denying, with the agent's output containing only the generic "Denied: Action not permitted" message in the second case, never a reason.
  
-Once that passes, run it for real (Keycloak and the gateway need to be up, per sections 5-6 above, plus Ollama serving `llama3.2:3b`):
+Once that passes, run it for real (Keycloak and the gateway need to be up, per sections 5-6 above, plus Ollama serving `qwen2.5:7b`):
  
 ```bash
 python -m agent.run_agent alice alice-pass "Read record rec-001"
@@ -226,4 +226,4 @@ Two things worth doing once you've run this for real: rerun `T2-G2-03` (the agen
 
 ## Hardware note
 
-RTX 3050 Laptop GPU, 4GB VRAM, 16GB system RAM. `llama3.2:3b` at Q4 quantization fits fully in VRAM. Confirm actual behavior with `ollama run`.
+RTX 3050 Laptop GPU, 4GB VRAM, 16GB system RAM. `qwen2.5:7b` at Q4 quantization is roughly 4.5-5GB, it will not fit fully in 4GB VRAM the way `llama3.2:3b` did; expect partial GPU offload or full CPU fallback depending on Ollama's configuration. This K8s deployment currently requests no GPU resources at all (no NVIDIA device plugin, no `nvidia.com/gpu` limit on the `ollama` Deployment), so inside the cluster it's running on CPU regardless. Confirm actual behavior with `ollama run`.

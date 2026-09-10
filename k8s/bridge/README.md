@@ -13,10 +13,10 @@ Same as Silo's, see `k8s/README.md`'s Prerequisites section: kind, kubectl, Dock
 One host-level prerequisite worth calling out explicitly, since it's easy to hit on a multi-node kind cluster and the failure mode (`kube-proxy` crash-looping cluster-wide with `too many open files`) doesn't obviously point at itself: Linux's default `fs.inotify` limits are often too low for a 6-node kind cluster running Cilium. If you see that error, raise them:
 
 ```bash
-sudo sysctl fs.inotify.max_user_watches=524288 && \
-sudo sysctl fs.inotify.max_user_instances=512 && \
-echo 'fs.inotify.max_user_watches=524288' | sudo tee -a /etc/sysctl.conf && \
-echo 'fs.inotify.max_user_instances=512' | sudo tee -a /etc/sysctl.conf 
+sudo sysctl fs.inotify.max_user_watches=524288
+sudo sysctl fs.inotify.max_user_instances=512
+echo 'fs.inotify.max_user_watches=524288' | sudo tee -a /etc/sysctl.conf
+echo 'fs.inotify.max_user_instances=512' | sudo tee -a /etc/sysctl.conf
 ```
 
 ## 0. Bring up the cluster with Cilium
@@ -82,7 +82,7 @@ chmod +x k8s/bridge/kind/deploy-bridge-agents.sh
 k8s/bridge/kind/deploy-bridge-agents.sh
 ```
 
-This applies NetworkPolicy first: each tenant's agent gets egress to the shared `authorizer`, `gateway-ingress`, and `inference`, and nothing else, deliberately no rule anywhere allows `tenant-a` and `tenant-b` to reach each other, that mutual isolation is held constant against Silo on purpose, it's not the variable this comparison is testing. `gateway-ingress` also gets its own egress to `authorizer`, for Gate 1's JWKS fetch, independent of whatever token-fetching a client or agent does. Then Ollama comes up, pulls `llama3.2:3b` as an explicit step (same reasoning as Silo, this is a plain foreground command so a slow pull won't trigger a false CrashLoopBackOff), then both tenants' gVisor-protected `agent-sandbox` pods.
+This applies NetworkPolicy first: each tenant's agent gets egress to the shared `authorizer`, `gateway-ingress`, and `inference`, and nothing else, deliberately no rule anywhere allows `tenant-a` and `tenant-b` to reach each other, that mutual isolation is held constant against Silo on purpose, it's not the variable this comparison is testing. `gateway-ingress` also gets its own egress to `authorizer`, for Gate 1's JWKS fetch, independent of whatever token-fetching a client or agent does. Then Ollama comes up, pulls `qwen2.5:7b` as an explicit step (same reasoning as Silo, this is a plain foreground command so a slow pull won't trigger a false CrashLoopBackOff), then both tenants' gVisor-protected `agent-sandbox` pods.
 
 ## 5. Verify end-to-end, real agent, shared everything
 

@@ -21,7 +21,7 @@ DEFAULT_REQUEST_LIMIT = 10
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("prompt")
-    parser.add_argument("--model", default="llama3.2:3b")
+    parser.add_argument("--model", default="qwen2.5:7b")
     parser.add_argument("--request-limit", type=int, default=DEFAULT_REQUEST_LIMIT)
     args = parser.parse_args()
 

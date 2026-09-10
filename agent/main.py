@@ -43,7 +43,7 @@ class UpdateRecordArgs(BaseModel):
     amount: float = Field(description="The new amount value.")
 
 
-def build_agent(model_name: str = "llama3.2:3b") -> Agent[AgentDeps, str]:
+def build_agent(model_name: str = "qwen2.5:7b") -> Agent[AgentDeps, str]:
     model = OpenAIChatModel(
         model_name,
         provider=OllamaProvider(base_url=OLLAMA_BASE_URL),

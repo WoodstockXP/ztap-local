@@ -195,13 +195,13 @@ chmod +x k8s/kind/deploy-agents.sh
 k8s/kind/deploy-agents.sh
 ```
 
-This applies the new NetworkPolicy first: each tenant's agent needs egress to two places, its own tenant's Keycloak (to fetch its own DPoP-bound token directly, the same two-step flow the test client uses) and its own tenant's gateway (to actually invoke tools), plus the shared `inference` service, nothing else. `inference` also gets one narrow addition to the default-deny baseline, HTTPS egress to the internet, needed for the one-time pull of `llama3.2:3b` from `registry.ollama.ai`. No other namespace gets internet egress; Gate evaluation and the gateway pipeline never need to leave the cluster, only model provisioning does.
+This applies the new NetworkPolicy first: each tenant's agent needs egress to two places, its own tenant's Keycloak (to fetch its own DPoP-bound token directly, the same two-step flow the test client uses) and its own tenant's gateway (to actually invoke tools), plus the shared `inference` service, nothing else. `inference` also gets one narrow addition to the default-deny baseline, HTTPS egress to the internet, needed for the one-time pull of `qwen2.5:7b` from `registry.ollama.ai`. No other namespace gets internet egress; Gate evaluation and the gateway pipeline never need to leave the cluster, only model provisioning does.
 
 ```bash
 kubectl exec -n inference deploy/ollama -- ollama list
 ```
 
-Once `ollama list` shows `llama3.2:3b`, run the agent for real, same command as the top-level README's local Compose instructions, just executed inside the sandboxed pod instead of on your machine directly:
+Once `ollama list` shows `qwen2.5:7b`, run the agent for real, same command as the top-level README's local Compose instructions, just executed inside the sandboxed pod instead of on your machine directly:
 
 ```bash
 kubectl exec -it deploy/agent-sandbox -n tenant-a -- python -m agent.run_agent alice alice-pass "Read record rec-001"

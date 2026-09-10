@@ -22,6 +22,7 @@ from .prompts import SYSTEM_PROMPT
 
 OLLAMA_BASE_URL = os.environ.get("ZTAP_OLLAMA_BASE_URL", "http://localhost:11434/v1/")
 
+
 class ReadRecordArgs(BaseModel):
     model_config = ConfigDict(extra="ignore")
     resource_id: str = Field(description='The record ID, e.g. "rec-001".')
@@ -33,7 +34,7 @@ class UpdateRecordArgs(BaseModel):
     amount: float = Field(description="The new amount value.")
 
 
-def build_no_gateway_agent(model_name: str = "llama3.2:3b") -> Agent[None, str]:
+def build_no_gateway_agent(model_name: str = "qwen2.5:7b") -> Agent[None, str]:
     model = OpenAIChatModel(
         model_name,
         provider=OllamaProvider(base_url=OLLAMA_BASE_URL),

@@ -8,11 +8,11 @@ kubectl apply -f k8s/bridge/base/network-policy/allow-agent-shared-services.yaml
 kubectl apply -f k8s/bridge/base/network-policy/allow-inference-internet.yaml
 kubectl apply -f k8s/bridge/base/inference/ollama.yaml
 kubectl rollout status deployment/ollama -n inference --timeout=60s
-kubectl exec -n inference deploy/ollama -- ollama pull llama3.2:3b
+kubectl exec -n inference deploy/ollama -- ollama pull qwen2.5:7b
 docker build -t ztap-app:local .
 kind load docker-image ztap-app:local --name ztap-bridge
 kubectl apply -f k8s/bridge/base/agent/agent-sandbox-a.yaml
 kubectl apply -f k8s/bridge/base/agent/agent-sandbox-b.yaml
 kubectl rollout status deployment/agent-sandbox -n tenant-a --timeout=60s
 kubectl rollout status deployment/agent-sandbox -n tenant-b --timeout=60s
-echo "bridge agent sandboxes and ollama (with llama3.2:3b pulled) are up."
+echo "bridge agent sandboxes and ollama (with qwen2.5:7b pulled) are up."
