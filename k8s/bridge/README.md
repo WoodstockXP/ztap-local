@@ -13,9 +13,9 @@ Same as Silo's, see `k8s/README.md`'s Prerequisites section: kind, kubectl, Dock
 One host-level prerequisite worth calling out explicitly, since it's easy to hit on a multi-node kind cluster and the failure mode (`kube-proxy` crash-looping cluster-wide with `too many open files`) doesn't obviously point at itself: Linux's default `fs.inotify` limits are often too low for a 6-node kind cluster running Cilium. If you see that error, raise them:
 
 ```bash
-sudo sysctl fs.inotify.max_user_watches=524288
-sudo sysctl fs.inotify.max_user_instances=512
-echo 'fs.inotify.max_user_watches=524288' | sudo tee -a /etc/sysctl.conf
+sudo sysctl fs.inotify.max_user_watches=524288 && \
+sudo sysctl fs.inotify.max_user_instances=512 && \
+echo 'fs.inotify.max_user_watches=524288' | sudo tee -a /etc/sysctl.conf && \
 echo 'fs.inotify.max_user_instances=512' | sudo tee -a /etc/sysctl.conf
 ```
 
