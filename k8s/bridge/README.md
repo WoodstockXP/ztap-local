@@ -2,9 +2,11 @@
 
 This is the comparison arm to Silo (`k8s/README.md`). Same application code, same Cedar policies, same gVisor-protected Agent Sandbox pattern, different topology: one shared Keycloak, one shared gateway, both serving both tenants. Isolation between tenants here rests entirely on Gate 2's Cedar evaluation, there is no separate identity provider per tenant and, deliberately, no per-tenant NetworkPolicy split, that absence is the actual independent variable this arm exists to measure.
 
+**Just need it running again?** Run `k8s/bridge/kind/bootstrap-bridge.sh`, it does everything below in the right order with no pauses. The step-by-step walkthrough that follows is for understanding *why* each layer is there and *how* to verify each guarantee directly (see `eval/README.md` for the fully worked-out setup-and-test instructions covering both topologies).
+
 ## Status
 
-Namespaces, the shared Keycloak (`authorizer`), and the shared gateway (`gateway-ingress`) are built. Not yet deployed or verified. Agent Sandbox, inference, and NetworkPolicy for this topology are not yet built, they'll follow the same order Silo did: golden path first, then duplicate/extend.
+Fully built and verified: the shared Keycloak (`authorizer`), the shared gateway (`gateway-ingress`), NetworkPolicy, the gVisor RuntimeClass, Ollama, and both tenants' Agent Sandboxes. End-to-end tested with the real eval harness (`eval/run_gateway_attacks`, `eval/run_agent_attacks`), including repeated-run consistency checks via `eval/run_matrix.sh`.
 
 ## Prerequisites
 

@@ -1,6 +1,8 @@
 # ZTAP on Kubernetes: Silo
 
-This covers the Kubernetes-deployed portion of the project (outline Phase 5 onward), separate from the top-level README, which covers the local Docker Compose harness (Phase 4) that this still depends on for the actual gateway/agent/policy code.
+This covers the Silo topology's Kubernetes deployment (outline Phase 5), separate from the top-level README, which covers the local Docker Compose harness (Phase 4) that this still depends on for the actual gateway/agent/policy code. Bridge is a separate topology with its own manifests and its own doc: see `k8s/bridge/README.md`.
+
+**Just need it running again?** Run `k8s/kind/bootstrap-silo.sh`, it does everything below in the right order with no pauses. The step-by-step walkthrough that follows is for understanding *why* each layer is there and *how* to verify each isolation guarantee directly, it was written incrementally while each piece was first being built and debugged, not as the required path to a working cluster. Use it when you want to see a specific guarantee in action (the issuer-mismatch bug, isolation with vs without NetworkPolicy, gVisor actually intercepting syscalls), or when something's broken and you need to narrow down which layer.
 
 ## Status
 
