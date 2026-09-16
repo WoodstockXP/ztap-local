@@ -1,0 +1,16 @@
+variable "cluster_name" {
+  type = string
+}
+
+variable "cidr_block" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+
+variable "subnet_per_tenant" {
+  type = bool
+}
+
+variable "availability_zones" {
+  type = list(string)
+}
