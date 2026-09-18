@@ -1,5 +1,5 @@
 resource "aws_iam_role" "node" {
-  name = "${var.cluster_name}-node-role"
+  name = "${var.cluster_name}-${var.pool_name}-node-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -27,11 +27,15 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
 
 resource "aws_eks_node_group" "this" {
   cluster_name    = var.cluster_name
-  node_group_name = "${var.cluster_name}-nodes"
+  node_group_name = "${var.cluster_name}-${var.pool_name}"
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
   instance_types  = [var.instance_type]
-  capacity_type  = var.capacity_type
+  capacity_type   = var.capacity_type
+  labels = merge(
+    { "ztap.io/node-pool" = var.pool_name },
+    var.gvisor_enabled ? { "ztap.io/gvisor" = "true" } : {}
+  )
   scaling_config {
     desired_size = var.desired_size
     min_size     = var.min_size

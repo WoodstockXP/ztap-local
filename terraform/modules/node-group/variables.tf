@@ -2,6 +2,15 @@ variable "cluster_name" {
   type = string
 }
 
+variable "pool_name" {
+  type = string
+}
+
+variable "gvisor_enabled" {
+  type    = bool
+  default = false
+}
+
 variable "subnet_ids" {
   type = list(string)
 }
@@ -28,5 +37,5 @@ variable "max_size" {
 
 variable "capacity_type" {
   type    = string
-  default = "SPOT"
+  default = "ON_DEMAND"
 }

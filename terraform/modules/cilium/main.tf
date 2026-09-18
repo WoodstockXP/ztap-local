@@ -7,19 +7,13 @@ resource "helm_release" "cilium" {
   set = [
     { name = "eni.enabled", value = "true" },
     { name = "ipam.mode", value = "eni" },
-    { name = "egressMasqueradeInterfaces", value = "eth0" },
+    { name = "enableIPv4Masquerade", value = "true" },
+    { name = "egressMasqueradeInterfaces", value = "ens+" },
     { name = "routingMode", value = "native" },
     { name = "hubble.enabled", value = "true" },
     { name = "hubble.relay.enabled", value = "true" },
     { name = "hubble.ui.enabled", value = "true" }
   ]
-}
-
-resource "kubernetes_namespace_v1" "tenant" {
-  for_each = toset(var.tenant_namespaces)
-  metadata {
-    name = each.value
-  }
 }
 
 resource "kubernetes_manifest" "tenant_default_deny" {
@@ -29,7 +23,7 @@ resource "kubernetes_manifest" "tenant_default_deny" {
     kind       = "CiliumNetworkPolicy"
     metadata = {
       name      = "default-deny-cross-tenant"
-      namespace = kubernetes_namespace_v1.tenant[each.key].metadata[0].name
+      namespace = each.value
     }
     spec = {
       endpointSelector = {}
@@ -46,5 +40,5 @@ resource "kubernetes_manifest" "tenant_default_deny" {
       ]
     }
   }
-  depends_on = [helm_release.cilium, kubernetes_namespace_v1.tenant]
+  depends_on = [helm_release.cilium]
 }

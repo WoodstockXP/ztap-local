@@ -8,12 +8,12 @@ variable "availability_zones" {
   default = ["us-east-1a", "us-east-1b"]
 }
 
-variable "node_instance_type" {
-  type    = string
-  default = "t3.xlarge"
-}
-
 variable "node_capacity_type" {
   type    = string
   default = "SPOT"
+}
+
+variable "inference_instance_type" {
+  type    = string
+  default = "t3.xlarge"
 }
