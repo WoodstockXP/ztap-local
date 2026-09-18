@@ -17,8 +17,10 @@ resource "helm_release" "otel_collector" {
   name       = "otel-collector"
   repository = "https://open-telemetry.github.io/opentelemetry-helm-charts"
   chart      = "opentelemetry-collector"
+  version    = "0.173.1"
   namespace  = var.namespace
   set = [
+    { name = "image.repository", value = "otel/opentelemetry-collector" },
     { name = "nodeSelector.ztap\\.io/node-pool", value = var.node_pool },
     { name = "mode", value = "deployment" },
     { name = "config.receivers.otlp.protocols.grpc.endpoint", value = "0.0.0.0:4317" },

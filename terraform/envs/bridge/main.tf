@@ -135,3 +135,47 @@ module "observability" {
   }
   depends_on = [module.node_group, module.namespaces]
 }
+
+module "network_policy" {
+  source = "../../modules/network-policy"
+  providers = {
+    kubernetes = kubernetes
+  }
+  depends_on = [module.namespaces, module.cilium]
+}
+
+module "gvisor" {
+  source = "../../modules/gvisor"
+  providers = {
+    kubernetes = kubernetes
+  }
+  depends_on = [module.node_group]
+}
+
+module "agent_sandbox_a" {
+  source              = "../../modules/agent-sandbox"
+  namespace           = "tenant-a"
+  tenant_label        = "tenant-a"
+  image               = "${module.ecr.repository_url}:latest"
+  keycloak_token_url  = "http://${module.keycloak.service_name}.${module.keycloak.namespace}.svc.cluster.local:8080/realms/ztap/protocol/openid-connect/token"
+  gateway_url         = "http://${module.gateway.service_name}.${module.gateway.namespace}.svc.cluster.local:8001/invoke"
+  ollama_base_url     = "http://${module.ollama.service_name}.${module.ollama.namespace}.svc.cluster.local:11434/v1/"
+  providers = {
+    kubernetes = kubernetes
+  }
+  depends_on = [module.gvisor, module.network_policy, module.keycloak, module.gateway, module.ollama]
+}
+
+module "agent_sandbox_b" {
+  source              = "../../modules/agent-sandbox"
+  namespace           = "tenant-b"
+  tenant_label        = "tenant-b"
+  image               = "${module.ecr.repository_url}:latest"
+  keycloak_token_url  = "http://${module.keycloak.service_name}.${module.keycloak.namespace}.svc.cluster.local:8080/realms/ztap/protocol/openid-connect/token"
+  gateway_url         = "http://${module.gateway.service_name}.${module.gateway.namespace}.svc.cluster.local:8001/invoke"
+  ollama_base_url     = "http://${module.ollama.service_name}.${module.ollama.namespace}.svc.cluster.local:11434/v1/"
+  providers = {
+    kubernetes = kubernetes
+  }
+  depends_on = [module.gvisor, module.network_policy, module.keycloak, module.gateway, module.ollama]
+}
