@@ -4,6 +4,7 @@ resource "helm_release" "kube_prometheus_stack" {
   chart      = "kube-prometheus-stack"
   version    = "87.21.0"
   namespace  = var.namespace
+  timeout    = 600
   set = [
     { name = "prometheus.prometheusSpec.nodeSelector.ztap\\.io/node-pool", value = var.node_pool },
     { name = "grafana.nodeSelector.ztap\\.io/node-pool", value = var.node_pool },

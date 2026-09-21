@@ -37,7 +37,7 @@ locals {
     tenant-a = {
       instance_type    = "t3.xlarge"
       gvisor_enabled   = true
-      bootstrap_script = local.gvisor_bootstrap_script
+      bootstrap_script = ""
       desired_size     = 1
       min_size         = 1
       max_size         = 2
@@ -45,7 +45,7 @@ locals {
     tenant-b = {
       instance_type    = "t3.xlarge"
       gvisor_enabled   = true
-      bootstrap_script = local.gvisor_bootstrap_script
+      bootstrap_script = ""
       desired_size     = 1
       min_size         = 1
       max_size         = 2

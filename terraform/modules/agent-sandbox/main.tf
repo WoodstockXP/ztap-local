@@ -13,11 +13,11 @@ resource "kubernetes_deployment_v1" "agent_sandbox" {
         labels = { app = "agent-sandbox", tenant = var.tenant_label }
       }
       spec {
-        runtime_class_name = "gvisor"
-        node_selector = {
-          "ztap.io/node-pool" = var.tenant_label
-          "ztap.io/gvisor"    = "true"
-        }
+        runtime_class_name = var.gvisor_enabled ? "gvisor" : null
+        node_selector = merge(
+          { "ztap.io/node-pool" = var.tenant_label },
+          var.gvisor_enabled ? { "ztap.io/gvisor" = "true" } : {}
+        )
         container {
           name              = "agent-sandbox"
           image             = var.image

@@ -26,3 +26,8 @@ variable "client_id" {
   type    = string
   default = "ztap-gateway"
 }
+
+variable "gvisor_enabled" {
+  type    = bool
+  default = false
+}
