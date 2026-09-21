@@ -1,39 +1,54 @@
 locals {
+  gvisor_bootstrap_lines = [
+    "#!/bin/bash",
+    "set -o xtrace",
+    "curl -fsSL https://storage.googleapis.com/gvisor/releases/release/latest/x86_64/gvisor.tar.bz2 -o /tmp/gvisor.tar.bz2",
+    "tar -xjf /tmp/gvisor.tar.bz2 -C /usr/local/bin",
+    "chmod 0755 /usr/local/bin/runsc /usr/local/bin/containerd-shim-runsc-v1",
+    "printf '%s\\n' \"[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc]\" \"runtime_type = 'io.containerd.runsc.v1'\" >> /etc/containerd/config.toml"
+  ]
+  gvisor_bootstrap_script = join("\n", local.gvisor_bootstrap_lines)
+
   node_pools = {
     shared-services = {
-      instance_type  = "t3.xlarge"
-      gvisor_enabled = false
-      desired_size   = 1
-      min_size       = 1
-      max_size       = 2
+      instance_type    = "t3.xlarge"
+      gvisor_enabled   = false
+      bootstrap_script = ""
+      desired_size     = 1
+      min_size         = 1
+      max_size         = 2
     }
     security-control = {
-      instance_type  = "t3.xlarge"
-      gvisor_enabled = false
-      desired_size   = 1
-      min_size       = 1
-      max_size       = 2
+      instance_type    = "t3.xlarge"
+      gvisor_enabled   = false
+      bootstrap_script = ""
+      desired_size     = 1
+      min_size         = 1
+      max_size         = 2
     }
     inference = {
-      instance_type  = var.inference_instance_type
-      gvisor_enabled = false
-      desired_size   = 1
-      min_size       = 1
-      max_size       = 1
+      instance_type    = var.inference_instance_type
+      gvisor_enabled   = false
+      bootstrap_script = ""
+      desired_size     = 1
+      min_size         = 1
+      max_size         = 1
     }
     tenant-a = {
-      instance_type  = "t3.xlarge"
-      gvisor_enabled = true
-      desired_size   = 1
-      min_size       = 1
-      max_size       = 2
+      instance_type    = "t3.xlarge"
+      gvisor_enabled   = true
+      bootstrap_script = local.gvisor_bootstrap_script
+      desired_size     = 1
+      min_size         = 1
+      max_size         = 2
     }
     tenant-b = {
-      instance_type  = "t3.xlarge"
-      gvisor_enabled = true
-      desired_size   = 1
-      min_size       = 1
-      max_size       = 2
+      instance_type    = "t3.xlarge"
+      gvisor_enabled   = true
+      bootstrap_script = local.gvisor_bootstrap_script
+      desired_size     = 1
+      min_size         = 1
+      max_size         = 2
     }
   }
 
@@ -63,17 +78,18 @@ module "eks_cluster" {
 }
 
 module "node_group" {
-  source         = "../../modules/node-group"
-  for_each       = local.node_pools
-  cluster_name   = module.eks_cluster.cluster_name
-  pool_name      = each.key
-  gvisor_enabled = each.value.gvisor_enabled
-  subnet_ids     = module.vpc.subnet_ids
-  instance_type  = each.value.instance_type
-  desired_size   = each.value.desired_size
-  min_size       = each.value.min_size
-  max_size       = each.value.max_size
-  capacity_type  = var.node_capacity_type
+  source           = "../../modules/node-group"
+  for_each         = local.node_pools
+  cluster_name     = module.eks_cluster.cluster_name
+  pool_name        = each.key
+  gvisor_enabled   = each.value.gvisor_enabled
+  bootstrap_script = each.value.bootstrap_script
+  subnet_ids       = module.vpc.subnet_ids
+  instance_type    = each.value.instance_type
+  desired_size     = each.value.desired_size
+  min_size         = each.value.min_size
+  max_size         = each.value.max_size
+  capacity_type    = var.node_capacity_type
 }
 
 module "namespaces" {
