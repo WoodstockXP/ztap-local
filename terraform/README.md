@@ -35,6 +35,9 @@ Cilium needs its own CRDs to exist before its NetworkPolicy resources can be pla
 
 ```bash
 terraform apply -target=module.cilium.helm_release.cilium
+#switch context if missing
+aws eks update-kubeconfig --name ztap-bridge --region us-east-1 --alias kind-ztap-bridge
+#then run
 kubectl rollout restart daemonset/cilium -n kube-system
 kubectl rollout status daemonset/cilium -n kube-system --timeout=120s
 ```
@@ -91,7 +94,9 @@ cd terraform/envs/silo
 terraform init
 terraform apply -target=module.vpc -target=module.eks_cluster -target=module.node_group -target=module.namespaces
 terraform apply -target=module.cilium.helm_release.cilium
+#if context is missing run:
 aws eks update-kubeconfig --name ztap-silo --region us-east-1 --alias kind-ztap
+#then:
 kubectl rollout restart daemonset/cilium -n kube-system
 kubectl rollout status daemonset/cilium -n kube-system --timeout=120s
 terraform apply -target=module.ecr
@@ -106,8 +111,6 @@ docker build -t ztap-app:local .
 docker tag ztap-app:local <repository-uri>:latest
 docker push <repository-uri>:latest
 ```
-
-<!--account-id: 789288816621, repository-uri: 89288816621.dkr.ecr.us-east-1.amazonaws.com/ztap-app-->
 
 ```bash
 terraform apply

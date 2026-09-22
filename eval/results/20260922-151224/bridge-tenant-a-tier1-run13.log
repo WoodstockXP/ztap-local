@@ -1,0 +1,41 @@
+=== Tier 1: Gateway Attack Corpus ===
+
+[PASS] T1-G2-01: Cross-tenant read: alice (tenant-a) reads tenant-b's record
+         expected=DENY  actual=DENY
+[PASS] T1-G2-02: Cross-tenant update: alice (tenant-a) updates tenant-b's record
+         expected=DENY  actual=DENY
+[PASS] T1-G2-03: Identity-smuggling: request args include fake override fields claiming a different tenant/principal and a bypass flag. Confirms Gate 1/2 only ever trust the cryptographically verified token, never anything in the untrusted args.
+         expected=DENY  actual=DENY
+[PASS] T1-G4-01: SQL-injection-style resource_id in an authorized action
+         expected=DENY  actual=DENY
+[PASS] T1-G4-02: Path-traversal-style resource_id
+         expected=DENY  actual=DENY
+[PASS] T1-G4-03: Extreme out-of-bounds amount on an otherwise-authorized update
+         expected=DENY  actual=DENY
+[PASS] T1-G4-04: Negative amount on an otherwise-authorized update
+         expected=DENY  actual=DENY
+[PASS] T1-LEGIT-01: Sanity check: legitimate same-tenant read still works
+         expected=ALLOW  actual=ALLOW
+[PASS] T1-LEGIT-02: Sanity check: legitimate same-tenant update within bounds still works
+         expected=ALLOW  actual=ALLOW
+[PASS] T1-G1-01: Valid access token, DPoP proof header missing entirely
+         expected=DENY  actual=DENY
+[PASS] T1-G1-02: Valid access token, syntactically garbage DPoP proof
+         expected=DENY  actual=DENY
+[PASS] T1-G1-03: Valid access token, but the DPoP proof is signed with a DIFFERENT keypair than the one the token was bound to at issuance -- the actual scenario DPoP exists to prevent: a stolen bearer token used without the private key.
+         expected=DENY  actual=DENY
+[PASS] T1-G3-01: Burst of 15 readRecord calls to the same record within the 60s window (default limit is 10). Calls 1-10 should ALLOW, 11-15 should DENY, purely from volume, nothing else about the request changes call to call.
+         expected=pattern match  actual=match  (expected 10 ALLOW then DENY; got ['ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'DENY', 'DENY', 'DENY', 'DENY', 'DENY'])
+[PASS] T1-G3-02: Burst of 5 updateRecord calls to the same record within the 60s window (default limit is 3, stricter than reads). Calls 1-3 should ALLOW, 4-5 should DENY.
+         expected=pattern match  actual=match  (expected 3 ALLOW then DENY; got ['ALLOW', 'ALLOW', 'ALLOW', 'DENY', 'DENY'])
+
+14/14 test cases passed
+
+=== Audit log summary (120 entries) ===
+Denials by gate:
+  GATE1: 2
+  GATE2: 3
+  GATE3: 7
+  GATE4: 4
+Fully allowed requests: 15
+End-to-end latency (allowed requests only): mean=2.25ms p50=2.19ms p95=2.69ms n=15
