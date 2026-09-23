@@ -4,11 +4,6 @@ This covers the Silo topology's Kubernetes deployment (outline Phase 5), separat
 
 **Just need it running again?** Run `k8s/kind/bootstrap-silo.sh`, it does everything below in the right order with no pauses. The step-by-step walkthrough that follows is for understanding *why* each layer is there and *how* to verify each isolation guarantee directly, it was written incrementally while each piece was first being built and debugged, not as the required path to a working cluster. Use it when you want to see a specific guarantee in action (the issuer-mismatch bug, isolation with vs without NetworkPolicy, gVisor actually intercepting syscalls), or when something's broken and you need to narrow down which layer.
 
-## Status
-
-Both tenants' Silo stacks (Keycloak + gateway, `authorizer-a`/`enforcer-a` and `authorizer-b`/`enforcer-b`) are up on a local kind cluster, with Cilium enforcing NetworkPolicy and a default-deny baseline across all ten namespaces. gVisor is smoke-tested and protects a real `agent-sandbox` pod in each of `tenant-a`/`tenant-b`, backed by a shared Ollama deployment in `inference`, verified end-to-end with a live LLM-driven agent run. `traffic-gen-a`/`traffic-gen-b` are still empty.
-
-
 ## Prerequisites
 
 ```bash
@@ -243,8 +238,8 @@ kubectl get pods -n kube-system -l k8s.app=cilium
 kubectl get nodes -L ztap.io/node-pool
 ```
 
-## Next up
+## See also
 
-- Point `eval/run_gateway_attacks.py` and `eval/run_agent_attacks.py` at the in-cluster stack instead of localhost, they can now target the real `agent-sandbox` pods instead of running locally against `localhost` Ollama.
-- `traffic-gen-a`/`traffic-gen-b` are still empty. Once the eval harness moves in-cluster, that's presumably where it runs from, dispatching requests to the agent sandboxes rather than being the sandbox itself.
-- Bridge topology: see `k8s/bridge/README.md`.
+- `k8s/bridge/README.md`: the comparison Bridge topology, same application code, shared Keycloak and gateway instead of per-tenant.
+- `eval/README.md`: running the actual evaluation harness against this cluster.
+- `terraform/README.md`: deploying this same topology to real AWS infrastructure instead of kind.

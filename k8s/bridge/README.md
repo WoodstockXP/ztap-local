@@ -4,10 +4,6 @@ This is the comparison arm to Silo (`k8s/README.md`). Same application code, sam
 
 **Just need it running again?** Run `k8s/bridge/kind/bootstrap-bridge.sh`, it does everything below in the right order with no pauses. The step-by-step walkthrough that follows is for understanding *why* each layer is there and *how* to verify each guarantee directly (see `eval/README.md` for the fully worked-out setup-and-test instructions covering both topologies).
 
-## Status
-
-Fully built and verified: the shared Keycloak (`authorizer`), the shared gateway (`gateway-ingress`), NetworkPolicy, the gVisor RuntimeClass, Ollama, and both tenants' Agent Sandboxes. End-to-end tested with the real eval harness (`eval/run_gateway_attacks`, `eval/run_agent_attacks`), including repeated-run consistency checks via `eval/run_matrix.sh`.
-
 ## Prerequisites
 
 Same as Silo's, see `k8s/README.md`'s Prerequisites section: kind, kubectl, Docker, and the Cilium CLI (auto-installed by `install-cilium.sh` if missing). The gVisor node image, `ztap-node-gvisor:local`, is reused as-is from the Silo build, it's tied to your kind version, not to a topology, no need to rebuild it here. The `RuntimeClass` object itself is cluster-scoped, though, and does need applying fresh per cluster, `deploy-bridge-agents.sh` handles that automatically now, it isn't bundled with the node image or the containerd config.
@@ -119,6 +115,8 @@ Expect `BLOCKED ConnectTimeout`, not a fast `ConnectError`/refused. That distinc
 kind delete cluster --name ztap-bridge
 ```
 
-## Next up
+## See also
 
-- Point the eval harness at both topologies once both are fully built, that comparison is the actual point of Phase 5's milestone.
+- `k8s/README.md`: the comparison Silo topology, per-tenant Keycloak, gateway, and NetworkPolicy instead of shared.
+- `eval/README.md`: running the actual evaluation harness against this cluster.
+- `terraform/README.md`: deploying this same topology to real AWS infrastructure instead of kind.
