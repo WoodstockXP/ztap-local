@@ -39,3 +39,8 @@ variable "capacity_type" {
   type    = string
   default = "ON_DEMAND"
 }
+
+variable "bootstrap_script" {
+  type    = string
+  default = ""
+}

@@ -52,4 +52,11 @@ describes this as "Bridge vs. Silo on AWS EKS." That phrasing predates
 ADR-0001's self-hosted decision and is stale; the actual target is a
 self-hosted, cloud-agnostic managed Kubernetes cluster, not EKS
 specifically. Worth reconciling in the outline before it is cited in the
-paper as-is.
+paper.
+
+**Resolved by ADR-0014**: AWS EKS was, in fact, the provider chosen for
+the cloud benchmark phase. The outline's original phrasing turned out to
+be correct as a statement of what would happen, if premature relative to
+when the actual decision was formalized and reasoned through. Reconcile
+the outline's phrasing against ADR-0014's reasoning, not by treating the
+phrase itself as simply an error to remove.

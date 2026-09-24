@@ -1,3 +1,24 @@
+locals {
+  mime_boundary = "==BOUNDARY=="
+  user_data_lines = [
+    "MIME-Version: 1.0",
+    "Content-Type: multipart/mixed; boundary=\"${local.mime_boundary}\"",
+    "",
+    "--${local.mime_boundary}",
+    "Content-Type: text/x-shellscript; charset=\"us-ascii\"",
+    "",
+    var.bootstrap_script,
+    "--${local.mime_boundary}--"
+  ]
+  user_data = base64encode(join("\n", local.user_data_lines))
+}
+
+resource "aws_launch_template" "this" {
+  count       = var.bootstrap_script != "" ? 1 : 0
+  name_prefix = "${var.cluster_name}-${var.pool_name}-"
+  user_data   = local.user_data
+}
+
 resource "aws_iam_role" "node" {
   name = "${var.cluster_name}-${var.pool_name}-node-role"
   assume_role_policy = jsonencode({
@@ -40,6 +61,13 @@ resource "aws_eks_node_group" "this" {
     desired_size = var.desired_size
     min_size     = var.min_size
     max_size     = var.max_size
+  }
+  dynamic "launch_template" {
+    for_each = var.bootstrap_script != "" ? [1] : []
+    content {
+      id      = aws_launch_template.this[0].id
+      version = aws_launch_template.this[0].latest_version
+    }
   }
   depends_on = [
     aws_iam_role_policy_attachment.worker_node,

@@ -11,7 +11,7 @@ evaluation harness, not anticipated when the four-gate pipeline was designed).
 
 | ID | Title | Status |
 |---|---|---|
-| [0001](0001-self-hosted-cloud-agnostic-infrastructure.md) | Self-hosted, cloud-agnostic infrastructure (no AWS-managed services) | Accepted |
+| [0001](0001-self-hosted-cloud-agnostic-infrastructure.md) | Self-hosted, cloud-agnostic infrastructure (no AWS-managed services) | Accepted, scope narrowed by 0014 |
 | [0002](0002-keycloak-as-identity-provider.md) | Keycloak as the Identity Provider | Accepted |
 | [0003](0003-dpop-over-mtls.md) | DPoP (RFC 9449) over mTLS for token binding | Accepted |
 | [0004](0004-cedar-as-policy-engine.md) | Cedar as the policy engine for Gate 2 | Accepted |
@@ -24,6 +24,13 @@ evaluation harness, not anticipated when the four-gate pipeline was designed).
 | [0011](0011-acting-as-agent-via-context.md) | User acting_as Agent modeled via Cedar context, not a compound principal | Accepted |
 | [0012](0012-agent-identity-deployment-constant.md) | Agent identity as a gateway deployment constant, not self-asserted | Accepted |
 | [0013](0013-ropc-for-local-testing-only.md) | Resource Owner Password Credentials for local testing only | Accepted |
+| [0014](0014-aws-eks-for-cloud-benchmarks.md) | AWS EKS as the managed Kubernetes provider for cloud benchmarks | Accepted |
+| [0015](0015-terraform-module-structure.md) | Terraform module structure mirrors k8s/ and k8s/bridge/ | Accepted |
+| [0016](0016-silo-aws-isolation-depth.md) | Silo's AWS isolation depth: per-tenant subnet and Security Groups, not per-tenant VPCs | Accepted |
+| [0017](0017-spot-default-capacity.md) | Spot instances as the default node capacity type on AWS | Accepted |
+| [0018](0018-gvisor-disabled-on-aws.md) | gVisor sandboxing disabled on the AWS deployment | Accepted (documented limitation) |
+| [0019](0019-observability-deferred-on-aws.md) | Observability (Prometheus, Grafana, OpenTelemetry) not deployed on AWS | Accepted (documented limitation) |
+| [0020](0020-cpu-only-inference-on-aws.md) | CPU-only inference on AWS, GPU quota request denied | Accepted |
 
 ## A note on scope
 

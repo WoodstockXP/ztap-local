@@ -1,7 +1,23 @@
-# ZTAP Local Harness
+# ZTAP (Zero-Trust Agent Perimeter)
 
-Local-only prototype environment: build and validate the core pipeline entirely offline before any AWS or Kubernetes work begins.
-This is the **Bridge** topology's building blocks running as plain Docker Compose, not yet as Kubernetes; Silo and the EKS deployment are future work.
+A four-gate zero-trust enforcement architecture for AI agents, gateway-mediated identity (Keycloak, DPoP-bound tokens), Cedar policy evaluation, session-envelope rate limiting, and schema validation, sitting between an LLM-driven agent and the tools it's allowed to call. The project's core empirical contribution is a benchmark comparing two tenant-isolation depths, Bridge (shared identity and gateway) and Silo (fully separated per tenant), quantifying a cost and latency trade-off AWS's own AgentCore documentation names but does not publish numbers for.
+
+## Documentation map
+
+Start here if you're setting up for the first time, then follow whichever path matches what you're doing:
+
+- **This README**: the local development environment, Docker Compose, running the gateway and a real agent directly on your machine. No Kubernetes required. The fastest path to a working four-gate pipeline you can actually poke at.
+- **[`k8s/README.md`](k8s/README.md)**: the Silo topology on a local `kind` cluster, per-tenant Keycloak, gateway, NetworkPolicy, and gVisor sandboxing, with a step-by-step walkthrough demonstrating each isolation guarantee directly.
+- **[`k8s/bridge/README.md`](k8s/bridge/README.md)**: the Bridge topology on a local `kind` cluster, the comparison arm to Silo, shared Keycloak and gateway instead of per-tenant.
+- **[`eval/README.md`](eval/README.md)**: the fastest path from a clean machine to actually running the evaluation harness, both attack tiers, the full repeated-run comparison matrix, against either local cluster.
+- **[`terraform/README.md`](terraform/README.md)**: deploying both topologies to real AWS EKS infrastructure, the cloud benchmark phase, account caveats, and every real infrastructure issue hit along the way.
+- **[`docs/adrs/`](docs/adrs/README.md)**: architecture decision records, why each significant choice was made, what alternatives were considered and rejected, and what trade-offs were accepted, including the ones that didn't fully work out (gVisor and observability on AWS are documented as open limitations, not silently dropped).
+
+Already have a local setup and just want to run tests? Go straight to `eval/README.md`. Deploying to AWS? `terraform/README.md`. Want to understand why something is built the way it is, rather than how to run it? `docs/adrs/`.
+
+## Local development environment
+
+The sections below are the local Docker Compose harness (Bridge's building blocks, running as plain processes rather than Kubernetes manifests), used to build and validate the core gateway/agent/policy pipeline before any cluster work. `k8s/` and `terraform/` both depend on the same gateway and agent code introduced here.
 
 ## 1. Install prerequisites (run these once)
 
@@ -168,7 +184,7 @@ One named limitation: agent identity here is a gateway-level config constant, no
 
 ## 10. Evaluation harness: structured logging, no-gateway baseline, Tier 1 attacks
  
-This covers everything built and tested so far 
+This covers everything built and tested so far. For running the harness against a Kubernetes cluster (local or AWS) rather than these local processes, see `eval/README.md` instead, this section is about the harness's pieces, that one is about actually running the full comparison.
  
 ### Structured audit logging
  
@@ -222,8 +238,7 @@ Two things worth doing once you've run this for real: rerun `T2-G2-03` (the agen
 ## 11. Considerations
  
 - **Single-request-only baseline run**: both harness tiers exist now, worth running Tier 1 and Tier 2 again with `ZTAP_GATE3_ENABLED=false uvicorn gateway.main:app --reload --port 8001` to isolate what Gate 3 specifically adds, per the Evaluation Plan.
-<!-- **First live runs**: neither `eval/run_gateway_attacks.py` nor `eval/run_agent_attacks.py` has been executed against your actual Keycloak + gateway + Ollama setup yet. That's the immediate next step, not more building.-->
 
 ## Hardware note
 
-RTX 3050 Laptop GPU, 4GB VRAM, 16GB system RAM. `qwen2.5:7b` at Q4 quantization is roughly 4.5-5GB, it will not fit fully in 4GB VRAM the way `llama3.2:3b` did; expect partial GPU offload or full CPU fallback depending on Ollama's configuration. This K8s deployment currently requests no GPU resources at all (no NVIDIA device plugin, no `nvidia.com/gpu` limit on the `ollama` Deployment), so inside the cluster it's running on CPU regardless. Confirm actual behavior with `ollama run`.
+RTX 3050 Laptop GPU, 4GB VRAM, 16GB system RAM. `qwen2.5:7b` at Q4 quantization is roughly 4.5-5GB, it will not fit fully in 4GB VRAM the way `llama3.2:3b` did; expect partial GPU offload or full CPU fallback depending on Ollama's configuration. Neither the local kind clusters nor the AWS deployment request GPU resources (no NVIDIA device plugin, no `nvidia.com/gpu` limit anywhere in the manifests or Terraform), so inference runs on CPU everywhere this project runs, regardless of environment. Confirm actual local behavior with `ollama run`.

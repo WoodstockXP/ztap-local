@@ -1,6 +1,6 @@
 # ADR-0001: Self-hosted, cloud-agnostic infrastructure (no AWS-managed services)
 
-**Status:** Accepted
+**Status:** Accepted, scope narrowed by ADR-0014
 
 ## Context
 
@@ -50,3 +50,14 @@ product name) in diagrams and documentation.
 - More setup burden: components a managed service would provide out of
   the box (identity provider, policy store) had to be configured and
   version-controlled by hand (see ADR-0002, ADR-0004).
+
+## Update
+
+ADR-0014 narrows this decision's scope, once cloud benchmarks became
+necessary. "No AWS-managed services" is clarified to mean AWS's bespoke
+agent-security products specifically (Cognito, Bedrock AgentCore), the
+concern this ADR's Context section actually describes, not the underlying
+managed Kubernetes control plane the self-hosted stack runs on top of.
+Every component named in this ADR's own Decision, Keycloak, Cedar, Ollama,
+the gateway, remains self-hosted and unchanged on AWS. See ADR-0014 for
+the full reasoning and its accepted trade-offs.
