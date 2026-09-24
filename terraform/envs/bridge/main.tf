@@ -144,13 +144,13 @@ module "ollama" {
   depends_on = [module.node_group, module.namespaces]
 }
 
-module "observability" {
-  source = "../../modules/observability"
-  providers = {
-    helm = helm
-  }
-  depends_on = [module.node_group, module.namespaces]
-}
+# module "observability" {
+#   source = "../../modules/observability"
+#   providers = {
+#     helm = helm
+#   }
+#   depends_on = [module.node_group, module.namespaces]
+# }
 
 module "network_policy" {
   source = "../../modules/network-policy"

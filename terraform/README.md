@@ -56,6 +56,9 @@ docker push <repository-uri>:latest
 Everything else in one pass, Terraform works out the dependency order on its own from here:
 
 ```bash
+#return to bridge folder
+cd terraform/envs/bridge
+#then run
 terraform apply
 ```
 
@@ -83,6 +86,15 @@ The first agent run should succeed, the second should be denied. Confirm the den
 kubectl logs -n gateway-ingress deploy/ztap-gateway --tail=20
 ```
 
+## Running eval matrix for Bridge
+
+```bash
+#go back to the project's root
+cd ..
+#and run
+TOPOLOGIES=bridge TIER1_RUNS=15 TIER2_RUNS=5 eval/run_matrix.sh
+```
+
 ## Building Silo from scratch
 
 Silo has its own root config under `envs/silo/`, reusing every module Bridge already proved. The real differences: `vpc` gets `subnet_per_tenant = true` (a real per-tenant subnet and security group, the flag existed since the first version of the module but Bridge never used it), 4 node pools instead of 5 (no `shared-services`/`security-control`, Keycloak and the gateway each colocate directly on their own tenant's node pool), two full Keycloak realms and two gateways instead of one each, and a larger, tenant-scoped network policy set.
@@ -107,12 +119,18 @@ Build and push the image, same as Bridge, a fresh repository needs a fresh push 
 ```bash
 aws ecr describe-repositories --repository-names ztap-app --query 'repositories[0].repositoryUri' --output text
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+#go back to project's root
+cd ..
+#then run
 docker build -t ztap-app:local .
 docker tag ztap-app:local <repository-uri>:latest
 docker push <repository-uri>:latest
 ```
 
 ```bash
+#return to silo folder
+cd terraform/envs/silo
+#then run
 terraform apply
 kubectl rollout status deployment/ollama -n inference --timeout=300s
 kubectl exec -n inference deploy/ollama -- ollama pull qwen2.5:7b
@@ -148,6 +166,15 @@ kubectl exec -it deploy/agent-sandbox -n tenant-a -- curl -m 5 http://keycloak.a
 ```
 
 Expect a timeout, not a connection refused, that specific distinction (silently dropped versus actively rejected) is what NetworkPolicy denial looks like.
+
+## Running eval matrix for Silo
+
+```bash
+#go back to the project's root
+cd ..
+#and run
+TOPOLOGIES=silo TIER1_RUNS=15 TIER2_RUNS=5 eval/run_matrix.sh
+```
 
 ## Known limitation: gVisor is currently disabled
 

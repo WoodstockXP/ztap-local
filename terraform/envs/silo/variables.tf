@@ -10,7 +10,7 @@ variable "availability_zones" {
 
 variable "node_capacity_type" {
   type    = string
-  default = "SPOT"
+  default = "ON_DEMAND"
 }
 
 variable "inference_instance_type" {
